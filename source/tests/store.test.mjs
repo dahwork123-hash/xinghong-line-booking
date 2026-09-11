@@ -19,7 +19,7 @@ test("current Taichung schedule and administrative TOBY pool", async (t) => {
   );
   assert.equal(
     rows.find((s) => s.id === "taichung_2026-09-09_1400_admin").interviewer,
-    "TOBY",
+    "",
   );
   assert.equal(
     rows.find((s) => s.id === "taichung_2026-09-08_1400_general").interviewer,

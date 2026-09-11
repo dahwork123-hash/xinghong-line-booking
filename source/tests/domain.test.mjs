@@ -87,26 +87,22 @@ test("each weekly slot can resolve a director name", () => {
       directors,
       assignments,
       "taichung",
-      "admin",
-      "2026-09-09",
-      "14:00",
-    ),
-    "TOBY",
-  );
-  assert.equal(
-    interviewerFor(
-      directors,
-      assignments,
-      "taichung",
       "general",
       "2026-09-08",
       "14:00",
     ),
     "中一處 黃岳澤",
   );
-  assert.throws(() =>
-    validateDirectors(
-      directors.filter((d) => !(d.officeId === "taichung" && d.pool === "general")),
+  assert.equal(
+    interviewerFor(
+      directors,
+      assignments,
+      "taichung",
+      "admin",
+      "2026-09-09",
+      "14:00",
     ),
+    "",
   );
+  assert.throws(() => validateDirectors([]));
 });

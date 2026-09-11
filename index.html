@@ -97,20 +97,12 @@
           { id: "zhong-4", name: "吳清蓮", title: "處長", unit: "中四處", officeId: "taichung", pool: "general", notifyEmail: "", notifyLine: "" },
           { id: "zhong-5", name: "童翊桓", title: "處長", unit: "中五處", officeId: "taichung", pool: "general", notifyEmail: "", notifyLine: "" },
           { id: "zhong-6", name: "蘇睿雅", title: "處長", unit: "中六處", officeId: "taichung", pool: "general", notifyEmail: "", notifyLine: "" },
-          { id: "taichung-admin", name: "TOBY", title: "主管", unit: "", officeId: "taichung", pool: "admin", notifyEmail: "", notifyLine: "" },
-          { id: "changhua-general", name: "彰化處長", title: "處長", unit: "", officeId: "changhua", pool: "general", notifyEmail: "", notifyLine: "" },
-          { id: "chiayi-general", name: "嘉義處長", title: "處長", unit: "", officeId: "chiayi", pool: "general", notifyEmail: "", notifyLine: "" },
-          { id: "hsinchu-general", name: "新竹處長", title: "處長", unit: "", officeId: "hsinchu", pool: "general", notifyEmail: "", notifyLine: "" },
         ],
         rules: [
           { officeId: "taichung", pool: "general", capacity: 5, isoWeekdays: { 1: ["11:00", "14:00"], 2: ["11:00", "14:00", "16:00"], 3: ["10:00", "14:00", "16:00"], 4: ["11:00", "14:00", "16:00"], 5: ["14:00", "16:00"] } },
-          { officeId: "taichung", pool: "admin", capacity: 5, isoWeekdays: { 3: ["14:00"] } },
-          { officeId: "changhua", pool: "general", capacity: 5, isoWeekdays: { 4: ["14:00"] } },
-          { officeId: "chiayi", pool: "general", capacity: 5, isoWeekdays: { 3: ["16:00"], 4: ["16:00"] } },
-          { officeId: "hsinchu", pool: "general", capacity: 5, isoWeekdays: { 2: ["14:00"], 4: ["14:00"] } },
         ],
       };
-      const KEY = "xinghong-pages-board-v2";
+      const KEY = "xinghong-pages-board-v3";
       const esc = (s) =>
         String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
       const slotKey = (o, p, d, t) => o + "|" + p + "|" + d + "|" + t;
@@ -171,7 +163,7 @@
               return `<button class="slot-chip" data-act="edit-slot" data-id="${day}|${time}" style="background:${color(dir?.id || "x")}"><b>${esc(time)}</b><small>${esc([dir?.unit, dir?.name].filter(Boolean).join(" ") || "尚未指定")}</small></button>`;
             })
             .join("");
-        $("#app").innerHTML = `<div class="studio"><div class="studio-hero"><h1>處長與面試時間</h1><p>先改好處長姓名，再把每週固定面試時間排上去。點色塊可換人，點＋可加時段。</p></div><div class="studio-steps"><span><i class="step-n">1</i>誰來面試</span><span><i class="step-n">2</i>每週幾點</span></div><div class="people-grid">${people}<button class="person-add" data-act="add-dir">＋ 新增處長或主管</button></div><div class="week-toolbar"><div class="office-pills">${pills}</div><label>這個組每場最多幾人<input id="cap" type="number" min="1" max="99" value="${r.capacity}"></label></div><p class="hint-card">${esc(OFFICES[r.officeId])}${r.pool === "admin" ? "行政" : "一般職缺"}。週末沒排就是空的。</p><div class="week-board">${[1, 2, 3, 4, 5, 6, 7].map((d) => `<section class="day-col"><h3>星期${DAY[d]}<small>${(r.isoWeekdays[d] || []).length}場</small></h3>${chips(d)}<button class="ghost-add" data-act="add-slot" data-id="${d}">＋ 加時段</button></section>`).join("")}</div><div class="studio-foot"><button class="primary" data-act="save">儲存到這台電腦</button><button data-act="reset">回復預設</button><small>正式 LINE 機器人不會讀這個網頁；這是給同仁先對時間表用的公開頁。</small></div></div>`;
+        $("#app").innerHTML = `<div class="studio"><div class="studio-hero"><h1>處長與面試時間</h1><p>目前先排台中一般職缺。點色塊可指定中一處到中六處哪位處長面試。</p></div><div class="studio-steps"><span><i class="step-n">1</i>六位處長</span><span><i class="step-n">2</i>每週幾點</span></div><div class="people-grid">${people}<button class="person-add" data-act="add-dir">＋ 新增處長或主管</button></div><div class="week-toolbar">${board.rules.length > 1 ? `<div class="office-pills">${pills}</div>` : ""}<label>這個組每場最多幾人<input id="cap" type="number" min="1" max="99" value="${r.capacity}"></label></div><p class="hint-card">台中一般職缺。點時段可改成黃岳澤、賴重丞、吳震、吳清蓮、童翊桓或蘇睿雅。</p><div class="week-board">${[1, 2, 3, 4, 5, 6, 7].map((d) => `<section class="day-col"><h3>星期${DAY[d]}<small>${(r.isoWeekdays[d] || []).length}場</small></h3>${chips(d)}<button class="ghost-add" data-act="add-slot" data-id="${d}">＋ 加時段</button></section>`).join("")}</div><div class="studio-foot"><button class="primary" data-act="save">儲存到這台電腦</button><button data-act="reset">回復預設</button><small>正式 LINE 機器人不會讀這個網頁；這是給同仁先對時間表用的公開頁。</small></div></div>`;
       }
       function modal(html) {
         $("#dialog-body").innerHTML = html;

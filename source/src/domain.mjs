@@ -209,11 +209,6 @@ export function validateDirectors(list) {
       notifyLine,
     };
   });
-  for (const r of seed.weeklySchedules)
-    invariant(
-      rows.some((d) => d.officeId === r.officeId && d.pool === r.pool),
-      "DIRECTOR_REQUIRED",
-    );
   return rows;
 }
 export function validateAssignments(map, directors, rules) {
@@ -228,7 +223,8 @@ export function validateAssignments(map, directors, rules) {
           (d) => d.officeId === r.officeId && d.pool === r.pool,
         );
         const dirId = map[key] || fallback?.id;
-        invariant(dirId && ids.has(dirId), "DIRECTOR_REQUIRED");
+        if (!dirId) continue;
+        invariant(ids.has(dirId), "INVALID_DIRECTOR");
         const dir = directors.find((d) => d.id === dirId);
         invariant(
           dir.officeId === r.officeId && dir.pool === r.pool,
@@ -247,7 +243,7 @@ export function interviewerFor(directors, assignments, officeId, pool, date, tim
   const dir =
     directors.find((d) => d.id === assignments[key]) ||
     directors.find((d) => d.officeId === officeId && d.pool === pool);
-  return interviewerLabel(dir) || (pool === "admin" ? "TOBY" : "");
+  return interviewerLabel(dir);
 }
 export function validateTemplate(key, text) {
   const t = seed.templates.find((t) => t.key === key);

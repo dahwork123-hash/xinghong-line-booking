@@ -228,6 +228,10 @@ function render() {
   if (tab === "candidates")
     body = `<p>先按「人工接手」，再回原 LINE 聊天；處理完按「恢復自動」。</p><p><a href="https://manager.line.biz/" target="_blank" rel="noopener noreferrer">開啟原 LINE 官方帳號後台</a> <small>請同仁自行尋找對話，不承諾直接開啟指定人。瀏覽時不要點未讀訊息。</small></p>${table(["求職者", "狀態", "接手同仁", "更新時間", "操作"], candidates.map((c) => `<tr><td>${esc(c.name || "尚未完成預約")}<small>${esc(c.id.slice(0, 8))}</small></td><td><span class="badge ${c.mode !== "auto" ? "closed" : ""}">${{ auto: "自動", pending_human: "待人工", human: "人工接手" }[c.mode]}</span></td><td>${esc(c.actor || "")}</td><td>${dateTime(c.changed_at)}</td><td>${button("人工接手", "handoff", c.id)} ${button("恢復自動", "resume", c.id)} ${button("協助預約", "assist", c.id)}</td></tr>`).join(""))}`;
   if (tab === "schedules") {
+    if (!groupDirectors(board.rules[board.officeIndex] || { officeId: "", pool: "" }).length) {
+      const next = board.rules.findIndex((row) => groupDirectors(row).length);
+      board.officeIndex = next < 0 ? 0 : next;
+    }
     weeklyIndex = board.officeIndex;
     const r = board.rules[board.officeIndex];
     const people = board.directors
@@ -237,12 +241,14 @@ function render() {
       .join("");
     const pills = board.rules
       .map((row, i) =>
-        button(
-          officeLabel(row.officeId) + (row.pool === "admin" ? "行政" : "一般"),
-          "board-office",
-          String(i),
-          i === board.officeIndex ? "active" : "",
-        ),
+        groupDirectors(row).length
+          ? button(
+              officeLabel(row.officeId) + (row.pool === "admin" ? "行政" : "一般"),
+              "board-office",
+              String(i),
+              i === board.officeIndex ? "active" : "",
+            )
+          : "",
       )
       .join("");
     const chips = (day) =>
