@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>星鴻面試預約 · 處長與時間</title>
-    <link rel="stylesheet" href="source/public/style.css?v=compact-directors" />
+    <link rel="stylesheet" href="source/public/style.css?v=candidates" />
     <style>
       body {
         background:
@@ -41,7 +41,7 @@
         font-size: 14px;
       }
       .wrap {
-        max-width: 1180px;
+        max-width: 1280px;
         margin: 0 auto;
         padding: 28px 18px 80px;
       }
@@ -61,7 +61,7 @@
     <div class="topbar">
       <div>
         <strong>星鴻面試預約</strong>
-        <small style="color: #d7f3e5">處長與每週面試時間 · GitHub Pages</small>
+        <small style="color: #d7f3e5">面試者、處長與每週時間 · GitHub Pages</small>
       </div>
       <nav>
         <a href="planning-reference/07-slides.html">簡報</a>
@@ -72,8 +72,7 @@
     </div>
     <div class="wrap">
       <p id="toast" class="hint-card">
-        這頁可以直接改處長姓名與每週時間，設定存在你這台電腦的瀏覽器。正式 LINE
-        預約仍要另外部署後端。
+        面試者資料存在雲端。這一頁可以直接看名單、排時段。
       </p>
       <div id="app"></div>
     </div>
@@ -81,206 +80,6 @@
       <div id="dialog-body"></div>
       <button id="dialog-close" style="margin-top: 14px">關閉</button>
     </dialog>
-    <script>
-      const DAY = ["", "一", "二", "三", "四", "五", "六", "日"];
-      const OFFICES = {
-        taichung: "台中",
-        changhua: "彰化",
-        chiayi: "嘉義",
-        hsinchu: "新竹",
-      };
-      const seed = {
-        directors: [
-          { id: "zhong-1", name: "黃岳澤", title: "處長", unit: "中一處", officeId: "taichung", pool: "general", notifyEmail: "", notifyLine: "" },
-          { id: "zhong-2", name: "賴重丞", title: "處長", unit: "中二處", officeId: "taichung", pool: "general", notifyEmail: "", notifyLine: "" },
-          { id: "zhong-3", name: "吳震", title: "處長", unit: "中三處", officeId: "taichung", pool: "general", notifyEmail: "", notifyLine: "" },
-          { id: "zhong-4", name: "吳清蓮", title: "處長", unit: "中四處", officeId: "taichung", pool: "general", notifyEmail: "", notifyLine: "" },
-          { id: "zhong-5", name: "童翊桓", title: "處長", unit: "中五處", officeId: "taichung", pool: "general", notifyEmail: "", notifyLine: "" },
-          { id: "zhong-6", name: "蘇睿雅", title: "處長", unit: "中六處", officeId: "taichung", pool: "general", notifyEmail: "", notifyLine: "" },
-        ],
-        rules: [
-          { officeId: "taichung", pool: "general", capacity: 5, isoWeekdays: { 1: ["11:00-13:00", "14:00-16:00"], 2: ["11:00-13:00", "14:00-16:00", "16:00-18:00"], 3: ["10:00-12:00", "14:00-16:00", "16:00-18:00"], 4: ["11:00-13:00", "14:00-16:00", "16:00-18:00"], 5: ["14:00-16:00", "16:00-18:00"] } },
-        ],
-      };
-      const KEY = "xinghong-pages-board-v4";
-      const esc = (s) =>
-        String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-      const addMinutes = (hhmm, minutes) => {
-        const [h, m] = String(hhmm).split(":").map(Number);
-        const t = (((h * 60 + m + minutes) % 1440) + 1440) % 1440;
-        return String(Math.floor(t / 60)).padStart(2, "0") + ":" + String(t % 60).padStart(2, "0");
-      };
-      const parseRange = (value) => {
-        const s = String(value || "").trim();
-        const m = s.match(/^(([01]\d|2[0-3]):[0-5]\d)(?:\s*[-–~到至]\s*(([01]\d|2[0-3]):[0-5]\d))?$/);
-        if (!m) return { start: "", end: "" };
-        return { start: m[1], end: m[3] || addMinutes(m[1], 120) };
-      };
-      const rangeLabel = (value) => {
-        const p = parseRange(value);
-        return p.start ? p.start + "–" + p.end : "";
-      };
-      const rangeToken = (start, end) => start + "-" + (end || addMinutes(start, 120));
-      const slotKey = (o, p, d, t) => o + "|" + p + "|" + d + "|" + (parseRange(t).start || t);
-      const color = (id) => {
-        const p = ["#0f7a56", "#1d6fbf", "#b45309", "#7c3aed", "#be185d", "#0f766e"];
-        let h = 0;
-        for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-        return p[h % p.length];
-      };
-      const defaults = () => {
-        const assignments = {};
-        for (const r of seed.rules)
-          for (const [day, times] of Object.entries(r.isoWeekdays))
-            for (const time of times) {
-              const dir = seed.directors.find((d) => d.officeId === r.officeId && d.pool === r.pool);
-              if (dir) assignments[slotKey(r.officeId, r.pool, day, time)] = dir.id;
-            }
-        return {
-          directors: structuredClone(seed.directors),
-          rules: structuredClone(seed.rules),
-          assignments,
-          officeIndex: 0,
-        };
-      };
-      let board = defaults();
-      try {
-        const saved = JSON.parse(localStorage.getItem(KEY) || "null");
-        if (saved?.directors && saved?.rules) board = { ...defaults(), ...saved };
-      } catch {}
-      const $ = (s) => document.querySelector(s);
-      const toast = (m) => {
-        $("#toast").textContent = m;
-      };
-      const persist = () => {
-        localStorage.setItem(KEY, JSON.stringify(board));
-        toast("已存在這台電腦。重新整理也不會不見。");
-      };
-      const group = (r) => board.directors.filter((d) => d.officeId === r.officeId && d.pool === r.pool);
-      function render() {
-        const r = board.rules[board.officeIndex];
-        const people = board.directors
-          .map(
-            (d) => `<article class="person-card"><div class="person-top"><span class="avatar" style="background:${color(d.id)}">${esc(d.name.slice(0, 1))}</span><div><strong>${esc(d.name)}</strong><span class="meta">${esc(d.unit || d.title)} · ${esc(OFFICES[d.officeId])} · ${d.pool === "admin" ? "行政" : "一般職缺"}</span></div></div><div class="notify">${d.notifyEmail || d.notifyLine ? esc([d.notifyEmail, d.notifyLine].filter(Boolean).join(" · ")) : "還沒填通知方式"}</div><div class="actions"><button data-act="edit-dir" data-id="${esc(d.id)}">改姓名／通知</button></div></article>`,
-          )
-          .join("");
-        const pills = board.rules
-          .map(
-            (row, i) =>
-              `<button data-act="office" data-id="${i}" class="${i === board.officeIndex ? "active" : ""}">${esc(OFFICES[row.officeId])}${row.pool === "admin" ? "行政" : "一般"}</button>`,
-          )
-          .join("");
-        const chips = (day) =>
-          (r.isoWeekdays[day] || [])
-            .map((time) => {
-              const dir =
-                board.directors.find((d) => d.id === board.assignments[slotKey(r.officeId, r.pool, day, time)]) ||
-                group(r)[0];
-              return `<button class="slot-chip" data-act="edit-slot" data-id="${day}|${time}" style="background:${color(dir?.id || "x")}"><b>${esc(rangeLabel(time))}</b><small>${esc([dir?.unit, dir?.name].filter(Boolean).join(" ") || "尚未指定")}</small></button>`;
-            })
-            .join("");
-        $("#app").innerHTML = `<div class="studio"><div class="studio-hero"><h1>處長與面試時間</h1><p>目前先排台中一般職缺。點色塊可指定中一處到中六處哪位處長面試。</p></div><div class="studio-steps"><span><i class="step-n">1</i>每週幾點到幾點</span><span><i class="step-n">2</i>六位處長</span></div><div class="week-toolbar">${board.rules.length > 1 ? `<div class="office-pills">${pills}</div>` : ""}<label>這個組每場最多幾人<input id="cap" type="number" min="1" max="99" value="${r.capacity}"></label></div><p class="hint-card">台中一般職缺。點時段可改成黃岳澤、賴重丞、吳震、吳清蓮、童翊桓或蘇睿雅。</p><div class="week-board">${[1, 2, 3, 4, 5, 6, 7].map((d) => `<section class="day-col"><h3>星期${DAY[d]}<small>${(r.isoWeekdays[d] || []).length}場</small></h3>${chips(d)}<button class="ghost-add" data-act="add-slot" data-id="${d}">＋ 加時段</button></section>`).join("")}</div><div class="people-grid">${people}<button class="person-add" data-act="add-dir">＋ 新增處長或主管</button></div><div class="studio-foot"><button class="primary" data-act="save">儲存到這台電腦</button><button data-act="reset">回復預設</button><small>正式 LINE 機器人不會讀這個網頁；這是給同仁先對時間表用的公開頁。</small></div></div>`;
-      }
-      function modal(html) {
-        $("#dialog-body").innerHTML = html;
-        $("#dialog").showModal();
-      }
-      function dirForm(d) {
-        const r = board.rules[board.officeIndex];
-        modal(
-          `<h2>${d ? "修改處長資料" : "新增處長或主管"}</h2><form id="dir-form" data-id="${esc(d?.id || "")}"><label>姓名<input name="name" value="${esc(d?.name || "")}" maxlength="40" required></label><label>處別／單位<input name="unit" value="${esc(d?.unit || "")}" maxlength="20" placeholder="例如：中一處"></label><label>職稱<select name="title">${["處長", "主管", "面試官"].map((t) => `<option ${t === (d?.title || "處長") ? "selected" : ""}>${t}</option>`).join("")}</select></label><label>面試地<select name="officeId">${Object.entries(OFFICES).map(([id, n]) => `<option value="${id}" ${id === (d?.officeId || r.officeId) ? "selected" : ""}>${n}</option>`).join("")}</select></label><label>面試哪一組<select name="pool"><option value="general" ${ (d?.pool || r.pool) === "general" ? "selected" : ""}>一般職缺</option><option value="admin" ${(d?.pool || r.pool) === "admin" ? "selected" : ""}>行政</option></select></label><label>通知信箱<input name="notifyEmail" type="email" value="${esc(d?.notifyEmail || "")}"></label><button class="primary">儲存這位處長</button></form>`,
-        );
-      }
-      function slotForm(day, time) {
-        const r = board.rules[board.officeIndex];
-        const range = parseRange(time || "14:00");
-        const current = board.assignments[slotKey(r.officeId, r.pool, day, time || range.start)] || group(r)[0]?.id || "";
-        modal(
-          `<h2>${time ? "調整這個時段" : "新增面試時間"}</h2><form id="slot-form" data-day="${day}" data-time="${esc(time || "")}"><label>開始時間<input name="start" type="time" value="${esc(range.start)}" required></label><label>結束時間<input name="end" type="time" value="${esc(range.end)}" required></label><label>這場由誰面試<select name="directorId">${group(r).map((d) => `<option value="${esc(d.id)}" ${d.id === current ? "selected" : ""}>${esc([d.unit, d.name].filter(Boolean).join(" "))}</option>`).join("")}</select></label>${time ? `<button type="button" class="danger" data-act="remove-slot" data-id="${day}|${time}">刪掉這個時段</button>` : ""}<button class="primary">${time ? "更新時段" : "加入時間表"}</button></form>`,
-        );
-      }
-      document.addEventListener("click", (e) => {
-        const b = e.target.closest("[data-act]");
-        if (!b) return;
-        const a = b.dataset.act,
-          v = b.dataset.id;
-        if (a === "office") board.officeIndex = Number(v);
-        if (a === "add-dir") return dirForm();
-        if (a === "edit-dir") return dirForm(board.directors.find((d) => d.id === v));
-        if (a === "add-slot") return slotForm(Number(v));
-        if (a === "edit-slot") {
-          const [day, time] = v.split("|");
-          return slotForm(Number(day), time);
-        }
-        if (a === "remove-slot") {
-          const r = board.rules[board.officeIndex],
-            [day, time] = v.split("|");
-          r.isoWeekdays[day] = (r.isoWeekdays[day] || []).filter((t) => t !== time);
-          delete board.assignments[slotKey(r.officeId, r.pool, day, time)];
-          $("#dialog").close();
-        }
-        if (a === "save") persist();
-        if (a === "reset") {
-          board = defaults();
-          localStorage.removeItem(KEY);
-          toast("已回復預設時間表。");
-        }
-        render();
-      });
-      document.addEventListener("change", (e) => {
-        if (e.target.id === "cap") board.rules[board.officeIndex].capacity = Number(e.target.value);
-      });
-      document.addEventListener("submit", (e) => {
-        e.preventDefault();
-        const f = e.target,
-          data = Object.fromEntries(new FormData(f));
-        if (f.id === "dir-form") {
-          if (data.pool === "admin" && data.officeId !== "taichung") {
-            toast("行政面試固定在台中。");
-            return;
-          }
-          const next = {
-            id: f.dataset.id || crypto.randomUUID(),
-            name: data.name.trim(),
-            title: data.title,
-            unit: data.unit || "",
-            officeId: data.officeId,
-            pool: data.pool,
-            notifyEmail: data.notifyEmail || "",
-            notifyLine: "",
-          };
-          const i = board.directors.findIndex((d) => d.id === next.id);
-          if (i >= 0) board.directors[i] = next;
-          else board.directors.push(next);
-          $("#dialog").close();
-          persist();
-          render();
-        }
-        if (f.id === "slot-form") {
-          const r = board.rules[board.officeIndex],
-            day = f.dataset.day,
-            oldTime = f.dataset.time,
-            start = String(data.start || "").slice(0, 5),
-            end = String(data.end || "").slice(0, 5),
-            time = rangeToken(start, end);
-          if (!parseRange(start).start || !end || end <= start) {
-            toast("請填開始與結束時間，例如 14:00 到 16:00。");
-            return;
-          }
-          r.isoWeekdays[day] = r.isoWeekdays[day] || [];
-          if (oldTime && oldTime !== time) {
-            r.isoWeekdays[day] = r.isoWeekdays[day].filter((t) => t !== oldTime);
-            delete board.assignments[slotKey(r.officeId, r.pool, day, oldTime)];
-          }
-          if (!r.isoWeekdays[day].includes(time)) r.isoWeekdays[day] = [...r.isoWeekdays[day], time].sort();
-          board.assignments[slotKey(r.officeId, r.pool, day, time)] = data.directorId;
-          $("#dialog").close();
-          persist();
-          render();
-        }
-      });
-      $("#dialog-close").onclick = () => $("#dialog").close();
-      render();
-    </script>
+    <script type="module" src="board.js"></script>
   </body>
 </html>

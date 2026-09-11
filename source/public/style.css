@@ -520,6 +520,60 @@ dialog h2 {
   font-size: 13px;
   line-height: 1.7;
 }
+.staff-gate {
+  max-width: 420px;
+  margin: 24px auto;
+  background: white;
+  border: 1px solid #d7e5dc;
+  border-radius: 16px;
+  padding: 24px;
+}
+.staff-gate h2 {
+  margin: 0 0 8px;
+}
+.candidate-panel {
+  background: white;
+  border: 1px solid #d7e5dc;
+  border-radius: 16px;
+  padding: 14px;
+}
+.candidate-panel h2 {
+  margin: 0 0 10px;
+  font-size: 18px;
+}
+.candidate-toolbar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.candidate-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.candidate-table th,
+.candidate-table td {
+  text-align: left;
+  padding: 8px 6px;
+  border-bottom: 1px solid #e4eee8;
+  vertical-align: top;
+}
+.candidate-table small {
+  display: block;
+  color: #7a8f82;
+}
+.slot-chip .count {
+  display: block;
+  font-size: 11px;
+  opacity: 0.92;
+}
+.week-switch {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
 @media (max-width: 780px) {
   header {
     padding: 14px;
