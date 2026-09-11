@@ -1,0 +1,1906 @@
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>星鴻LINE面試預約｜完整手冊</title><style>:root{font-family:"Microsoft JhengHei",system-ui,sans-serif;color:#203d2d;background:#f3f7f4;letter-spacing:0}*{box-sizing:border-box}body{margin:0;line-height:1.85}header,main,footer{max-width:1180px;margin:auto;padding:28px 34px}header{background:white;border-bottom:3px solid #008c50}h1{font-size:30px;margin:4px 0 12px}h2{font-size:23px;margin:26px 0 12px;color:#087746}h3{font-size:19px}p{margin:10px 0}a{color:#007743;overflow-wrap:anywhere}nav,.actions{display:flex;gap:12px;flex-wrap:wrap;margin:22px 0}.button{padding:10px 18px;background:white;border:1px solid #c3d7c8;border-radius:6px;text-decoration:none;font-weight:600}.button.primary{background:#008c50;color:white;border-color:#008c50}.notice{padding:16px 20px;background:#fff2cf;border-left:4px solid #c79325;margin:18px 0;color:#694f10}.section{padding:12px 0 28px;border-bottom:1px solid #d4e2d8}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:35px}table{border-collapse:collapse;width:100%;font-size:14px;background:white;line-height:1.7}th,td{padding:12px;vertical-align:top;border:1px solid #d7e3db;text-align:left;overflow-wrap:anywhere}th{background:#e5f3e9}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#eaf1ed;padding:20px;border-radius:5px;font-size:13px;line-height:1.8}code{font-family:Consolas,"Microsoft JhengHei",monospace}li{margin:7px 0}small,.muted{color:#647c6d;font-size:14px}.pill{display:inline-block;padding:3px 10px;border-radius:4px;background:#e3f2e8;color:#087846;font-size:13px}details{margin:20px 0;background:white;border:1px solid #d4e2d8;border-radius:6px}summary{cursor:pointer;padding:18px 22px;font-weight:bold;color:#087443}article{padding:5px 24px 28px}article>h1{font-size:25px}article h2{padding-top:16px;border-top:1px solid #e2eae4}figure{margin:22px 0;background:white}figure img{display:block;width:100%;height:auto}figcaption{padding:10px 16px;color:#506d5a;font-size:13px}.preview{width:100%;display:block;border:1px solid #dbe6de}footer{font-size:13px;color:#617a69}.back{position:fixed;bottom:14px;right:18px;background:#fff;border:1px solid #cee0d3;padding:7px 14px;border-radius:5px;font-size:13px;text-decoration:none}.scrolltable{overflow-x:auto}@media(max-width:720px){header,main,footer{padding:20px 16px}.grid{grid-template-columns:1fr;gap:14px}h1{font-size:25px}table{min-width:540px}article{padding:4px 14px 22px}.button{padding:9px 12px}pre{padding:12px}}@media print{nav,.actions,.back{display:none}body{background:white}header,main{max-width:none;padding:0}details{break-before:page;border:0}summary{padding:5px}figure{break-after:page}article{padding:0}a{color:inherit;text-decoration:none}}</style></head><body id="top"><header><span class="pill">H1 交接文件 · 2026.09.07</span><h1>星鴻 LINE 面試預約完整手冊</h1><p>已核定規則、詳細架構與同事 AI 的執行指令。</p><nav><a href="00-start.html">交接首頁</a><a href="07-slides.html">簡報瀏覽</a><a href="06-prototype.html">操作原型</a><a href="11-original-ai-context.md">AI一次上傳文字檔</a></nav></header><main><div class="notice">本機原型與詳細规划已完成；正式LINE、雲端共享資料庫、登入及實機驗收尚未完成。請勿將此檔上傳為正式預約服務。</div><p>按章節展開閱讀。原01/02等檔案仍另附，方便AI或程式處理。</p><details id="doc-0" open><summary>01-requirements.md · 已核定需求</summary><article><h1>星鴻 LINE 面試預約：完整規劃與需求規格</h1>
+<p>交接整理日期：2026-09-07；已核定業務依據：首版建置規格 v3<br>帳號：星小鴻 (星鴻社會住宅徵才專區)，<code>@064lhzfu</code><br>版本依據：使用者最新需求及本輪補充答覆。本文件取代 v2 的首版範圍、名額、截止時間、人工分工與費用規劃。<br>決策更新：十項確認題已全部答覆。人工接手流程及名額解讀已明確同意：新後台按「人工接手」→ 回原 LINE 聊天 → 處理完按「恢復自動」；新系統一般職缺合計 5 人、行政獨立 5 人，不改成不限人數，加上系統外人工預約後現場超過人數可接受。其他已核定規則維持不變。<br>交付狀態：本包提供詳細規劃、架構、AI 指令、新版操作原型及簡報。原型只操作本機假資料；正式 LINE、雲端資料庫、登入及 XLSX 匯出尚未建置。此次沒有開啟 LINE 聊天或未讀、發送訊息、部署或購買服務。</p>
+<h2>1. 建置結論</h2>
+<p>首版已同意採「LINE 按鈕預約 + 固定規則與核定罐頭 + 小型預約管理後台」。以簡單完成預約、不增加訂閱或平台月租為設計目標，先不接付費 AI API、不買客服外掛，不建新聊天收件匣。</p>
+<p>求職者完成點選與基本資料後直接預約。主管在原 LINE 官方帳號後台處理人工聊天；新後台負責預約名單、場次人數、查詢、改期取消及設定。這是自動化預約，不等同可自由理解所有文字的生成式 AI 客服。</p>
+<p>零新增平台費是需經測試驗證的目標，不是永久免費或無人維護的保證。正式上線仍需公司持有雲端帳號、登入權限、備份與故障處理窗口。</p>
+<h2>2. 已確認規則</h2>
+<div class="scrolltable"><table>
+<thead>
+<tr>
+<th>項目</th>
+<th>最新確認</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>首版目的</td>
+<td>預約、查詢、查看場次人數與保留新預約紀錄</td>
+</tr>
+<tr>
+<td>直接預約</td>
+<td>社宅顧問、儲備主管、行政職填完必要資料即可預約，不需主管事先審核</td>
+</tr>
+<tr>
+<td>面試型態及容量</td>
+<td>團體面試，新系統每組最多 5 人已確認，不改成不限人數；舊約及系統外人工另約不扣系統名額，現場合計超過人數可接受</td>
+</tr>
+<tr>
+<td>台中同時段分組</td>
+<td>新系統行政獨立最多 5 人；社宅顧問與儲備主管合計最多 5 人。週三 14:00 兩組新系統預約最高 10 人，不含未登錄的人工預約</td>
+</tr>
+<tr>
+<td>開放範圍</td>
+<td>開放 14 天，可當天預約</td>
+</tr>
+<tr>
+<td>截止時間</td>
+<td>場次開始前 1 小時截止。例如 14:00 場，13:00 起不可新約</td>
+</tr>
+<tr>
+<td>行政職</td>
+<td>每週三 14:00，台中文心路，面試主管 TOBY</td>
+</tr>
+<tr>
+<td>後台權限</td>
+<td>所有獲授權同仁都能看全區及操作全部首版功能，包括改時段、名額、發布罐頭、匯出、關閉場次；不分主管／同仁級別</td>
+</tr>
+<tr>
+<td>人工回覆</td>
+<td>兩位主管統一在原 LINE 官方帳號後台回覆；不要求換到新收件匣</td>
+</tr>
+<tr>
+<td>人工接手</td>
+<td>新後台按「人工接手」暫停該人的自動回覆 → 回原 LINE 聊天 → 處理完按「恢復自動」；已同意</td>
+</tr>
+<tr>
+<td>操作規模</td>
+<td>每日約 10～20 位來訊，2～3 位同仁操作；來訊量不等於完成預約數</td>
+</tr>
+<tr>
+<td>個資收集</td>
+<td>姓名、電話、應徵職務、應徵縣市四項必要資料；加入來源選填；性別、年齡、居住地、前職先不收</td>
+</tr>
+<tr>
+<td>同人預約</td>
+<td>同一 LINE 帳號只能保留一筆尚未面試的有效預約，換職缺或時間修改原預約</td>
+</tr>
+<tr>
+<td>取消及改期</td>
+<td>面試開始前可自助取消並釋出名額；改期新場仍須符合提前 1 小時截止</td>
+</tr>
+<tr>
+<td>舊資料</td>
+<td>不搬舊個資及聊天歷史、不登記交接保留名額，只保存上線後的新預約</td>
+</tr>
+<tr>
+<td>保存期限</td>
+<td>預設 1 年，按該筆面試日期起算的實作細節見第 10 節</td>
+</tr>
+<tr>
+<td>提醒及停辦</td>
+<td>不做自動提醒；所有授權同仁皆可管理國定假日、颱風及臨時停辦</td>
+</tr>
+<tr>
+<td>暫不建置</td>
+<td>報到、未到、到場率、錄取評估、舊資料匯入、交接保留名額、新聊天收件匣、自動提醒</td>
+</tr>
+<tr>
+<td>費用原則</td>
+<td>優先不增加建置平台及每月維運費，不自動購買或升級任何方案</td>
+</tr>
+</tbody></table></div>
+<p>14 天的實作口徑建議為「含今天共 14 個台灣曆日」，即今天至第 13 天；例如 9/6 開放 9/6～9/19，但各日仍須符合每週排程、截止與停開規則。這個計日口徑是明列的實作建議，不是多開第 15 天。</p>
+<h2>3. 九欄個資如何簡化</h2>
+<p>原本九欄是：姓名、性別、年齡、連絡電話、居住縣市／行政區、前一份工作內容、應徵縣市、收到應徵職務名稱、加入來源。</p>
+<div class="scrolltable"><table>
+<thead>
+<tr>
+<th>原欄位</th>
+<th>已同意的首版安排</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>姓名</td>
+<td>必填，自行輸入</td>
+</tr>
+<tr>
+<td>連絡電話</td>
+<td>必填，自行輸入並確認格式；未做簡訊驗證，不宣稱已驗證持有人</td>
+</tr>
+<tr>
+<td>收到應徵職務名稱</td>
+<td>必選，改為清楚的「應徵職務」按鈕</td>
+</tr>
+<tr>
+<td>應徵縣市</td>
+<td>必選，用按鈕選擇</td>
+</tr>
+<tr>
+<td>加入來源</td>
+<td>選填，可跳過；沒有可驗證來源時保留未知</td>
+</tr>
+<tr>
+<td>性別、年齡</td>
+<td>不作為預約必要欄位，首版不主動收集</td>
+</tr>
+<tr>
+<td>居住縣市／行政區</td>
+<td>不作為預約必要欄位；不能用來取代應徵縣市</td>
+</tr>
+<tr>
+<td>前一份工作內容</td>
+<td>不作為預約必要欄位，面試現場再填履歷</td>
+</tr>
+</tbody></table></div>
+<p>也就是「輸入姓名、電話 + 點選職務、縣市」四項必要資料。面試分公司、日期、時間由接下來的點選產生；LINE 身分、預約編號與異動時間由系統產生，不另要求求職者填寫。</p>
+<p>沿用舊格式貼資料的人仍可進入流程：用欄位標籤解析，只取預約必要資訊；缺哪一項就補問哪一項。辨識不確定時請本人重新點選，不用付費 AI 猜測。不要把範例姓名或電話當成完成資料，也不在新預約主檔額外留存完整九欄原文。</p>
+<p>原 LINE 後台既有歡迎訊息本輪不更動。四欄流程可先從新增的「預約面試」入口使用；未來是否同步精簡歡迎訊息，先提供文案再由使用者核准。</p>
+<h2>4. 求職者操作流程</h2>
+<ol>
+<li>點人力銀行上的既有 LINE 連結，加入或開啟 <code>@064lhzfu</code>。</li>
+<li>從選單或傳送「預約面試」進入；舊好友不用重新加入。</li>
+<li>點應徵職務、應徵縣市；南投再選到台中或彰化面試。</li>
+<li>輸入姓名、電話，顯示基本資料供本人核對；來源可略過。</li>
+<li>點具體日期，再選該日尚有名額、未截止、未停辦的時間。</li>
+<li>顯示完整摘要：職務、分公司、年月日、時間、地址、姓名電話。</li>
+<li>按「確認預約」後，由後端重新檢查容量、時間及重複預約；資料庫寫入成功才回覆成功。</li>
+<li>收到預約編號與入場資訊。行政提醒找 TOBY；其他職務沿用核定分公司確認文案。</li>
+<li>可從「我的預約」查詢、申請改期或取消；非標準問題選「聯絡招募人員」。</li>
+</ol>
+<p>預約成功文案含入場方式、自備原子筆、團體面試與停辦說明。時間及地址由場次資料帶入，不能讓文字罐頭和實際預約各有一套日期。</p>
+<p>首版以聊天室互動為主。已核定的 FAQ 可透過按鈕或明確關鍵字回覆；複雜敘述、含糊日期及未核定問題交由人工。問「只有四點嗎？」不是確認預約。</p>
+<h2>5. 時段、分組與名額</h2>
+<div class="scrolltable"><table>
+<thead>
+<tr>
+<th>分公司／分組</th>
+<th>每週排程</th>
+<th>地址</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>台中一般職缺</td>
+<td>一 11:00、14:00；二 11:00、14:00、16:00；三 10:00、14:00、16:00；四 11:00、14:00、16:00；五 14:00、16:00</td>
+<td>台中市北屯區文心路四段698號6樓之1</td>
+</tr>
+<tr>
+<td>台中行政</td>
+<td>三 14:00，找 TOBY</td>
+<td>台中市北屯區文心路四段698號6樓之1</td>
+</tr>
+<tr>
+<td>彰化一般職缺</td>
+<td>四 14:00</td>
+<td>彰化市華山路37號11樓之4</td>
+</tr>
+<tr>
+<td>嘉義一般職缺</td>
+<td>三、四 16:00</td>
+<td>嘉義市西區上海路175號2樓</td>
+</tr>
+<tr>
+<td>新竹一般職缺</td>
+<td>二、四 14:00</td>
+<td>新竹縣竹北市光明五街342號2樓</td>
+</tr>
+</tbody></table></div>
+<p>台中排程為使用者確認的現行後台版，不沿用六月舊時段。其餘分公司沿用已提供資料，上線核對是否有變更即可，不需重貼全部罐頭。南投不是另一套實體場次，選定台中或彰化後共用該地一般職缺名額，應徵縣市仍保留南投。</p>
+<p>名額單位：<code>面試分公司 + 具體日期時間 + 面試分組</code>。一般職缺的社宅顧問、儲備主管共用該組 5 人，不能每個職缺各收 5 人。行政使用獨立分組。</p>
+<div class="scrolltable"><table>
+<thead>
+<tr>
+<th>規則</th>
+<th>行為</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>每組容量</td>
+<td>預設 5，後台統一設定；發布設定需要權限與異動紀錄</td>
+</tr>
+<tr>
+<td>剩餘名額</td>
+<td>容量 − 新系統有效預約數，不小於 0；不扣未登錄的舊約或系統外人工預約</td>
+</tr>
+<tr>
+<td>額滿</td>
+<td>新系統不接受第 6 人，改列其他可約場次；首版不做候補，不因容許現場超額而取消系統容量檢查</td>
+</tr>
+<tr>
+<td>點選尚未確認</td>
+<td>不先占名額；最後確認時可能已滿，須提示改選</td>
+</tr>
+<tr>
+<td>多人同時確認</td>
+<td>在資料庫中原子檢查並占額；不可只在前端檢查或先查再無條件寫入</td>
+</tr>
+<tr>
+<td>取消</td>
+<td>本人確認後才取消並釋出名額；保留異動紀錄</td>
+</tr>
+<tr>
+<td>改期</td>
+<td>新場次確認成功才釋出舊名額；新場已滿或寫入失敗時原預約保持不變</td>
+</tr>
+<tr>
+<td>過期按鈕</td>
+<td>重新核對日期、截止、停開、容量及規則版本，不照舊畫面直接接受</td>
+</tr>
+<tr>
+<td>降低容量</td>
+<td>不刪除既有預約；若已超過新容量，停止新增並列受影響清單</td>
+</tr>
+</tbody></table></div>
+<p>同仁使用新後台代約也屬新系統預約，按同一容量計算，不新增人工超額放行功能。原 LINE 或現場另行安排且未登錄系統的人工預約可造成實際總人數超額；這是已接受的營運例外，不是系統自動加開第 6 個名額。</p>
+<p>已確認：改期後的新場次同樣必須提前 1 小時；面試開始前可自助取消；每個 LINE 身分只保留一筆未來有效預約。取消須本人再次確認，不把詢問「不能來怎麼辦」直接當作取消。</p>
+<h2>6. 管理後台範圍</h2>
+<p>新後台是一個登入後的管理網頁，不是直接把功能新增到 LINE 原生後台。兩個後台分工清楚：新後台管理預約，LINE 原後台人工聊天。</p>
+<div class="scrolltable"><table>
+<thead>
+<tr>
+<th>頁面</th>
+<th>首版內容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>場次總覽</td>
+<td>依面試日期看全區、分公司、場次；顯示一般／行政各組的新系統已約數、剩餘數；點數字進名單。明示不含未登錄的人工預約</td>
+</tr>
+<tr>
+<td>預約查詢</td>
+<td>依姓名、電話、職務、應徵地、面試地、面試日期、狀態查詢；明列預約編號</td>
+</tr>
+<tr>
+<td>預約明細</td>
+<td>聯絡資料、確認資訊、改期取消歷程、處理同仁、必要內部備註</td>
+</tr>
+<tr>
+<td>時段設定</td>
+<td>每週排程、分組容量、14 天範圍、提前 1 小時截止、臨時停開、加場、生效日期</td>
+</tr>
+<tr>
+<td>罐頭管理</td>
+<td>依職務／地區分類，草稿、預覽、發布；保留版本及操作者</td>
+</tr>
+<tr>
+<td>匯出</td>
+<td>匯出目前篩選結果為真正 <code>.xlsx</code>；不匯出 LINE 身分憑證、登入資訊或不必要個資</td>
+</tr>
+<tr>
+<td>人工處理狀態</td>
+<td>待人工、人工接手、恢復自動；記錄操作同仁及時間，接手後暫停該人的自動回覆；不提供新的人工聊天輸入框</td>
+</tr>
+</tbody></table></div>
+<p>所有獲授權同仁都看全區、操作全部首版功能，包含設定發布、預約代操作、匯出及停辦。首版不設主管／同仁權限分級，但仍須登入、每人獨立身分，操作記錄保留人員及時間。「全部同仁可操作」不等於公開免登入，也不需要共用 LINE 或雲端密碼。</p>
+<p>時段與機器人罐頭在新後台統一控制。若主管仍使用 LINE 原生「預設訊息」，首版不承諾兩邊罐頭自動同步；新後台提供核定文字供複製，避免不同版本。原生歡迎訊息仍由原 LINE 後台負責，避免雙重發送。</p>
+<h3>統計口徑</h3>
+<div class="scrolltable"><table>
+<thead>
+<tr>
+<th>指標</th>
+<th>資料及計算</th>
+<th>排除／界線</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>新系統有效預約數</td>
+<td>按面試日期、場次與分組，計算目前有效的唯一預約</td>
+<td>排除取消及已改到其他場的舊歸屬；重送不加一</td>
+</tr>
+<tr>
+<td>場次已占名額</td>
+<td>僅等於新系統有效預約數，不加交接保留名額</td>
+<td>不含未登錄的人工預約，不能稱為該場實際全部預約人數</td>
+</tr>
+<tr>
+<td>全區／分公司合計</td>
+<td>相同篩選下逐場逐組加總</td>
+<td>稱為預約人次；跨期間去重人數另算，不混稱</td>
+</tr>
+<tr>
+<td>期間建立筆數</td>
+<td>依資料建立日計算的新建預約事件</td>
+<td>不和面試日期的人數混用</td>
+</tr>
+</tbody></table></div>
+<p>總覽、名單及匯出共用同一組篩選條件；面試日期和建立日期分開。正式首版不計到場、未到及到場率，也不把超過面試時間的人自動標成未到。</p>
+<h2>7. 原 LINE 後台人工回覆如何協作</h2>
+<p>人工接手操作已核定：新後台按「人工接手」→ 回原 LINE 聊天 → 處理完按「恢復自動」。這是已確認的建置需求，目前尚未串接正式服務。</p>
+<ol>
+<li>求職者要求人工或系統無法處理時，保存待人工狀態並暫停該人的一般自動對話。</li>
+<li>同仁在新後台按「人工接手」，系統保存操作人員及時間，暫停該人的自動回覆，再回原 LINE 後台聊天；不假設機器人能自動偵測每一次主管發話。</li>
+<li>若要讓人工協助的預約出現在新後台，先用新後台代約並成功占額，再回 LINE 確認；此路徑仍受每組 5 人限制。若是原 LINE 或現場另行安排、未登錄系統的人工預約，不列入系統名額及查詢人數，現場合計超額可接受。</li>
+<li>處理完後明確按「恢復自動」，才恢復該人的自動對話。首版不設自動解除時限，不因收到下一則自由文字就自行恢復。</li>
+<li>本人可查詢既有預約；人工接手期間是否允許自助異動需有一致規則，建議異動也交接手主管處理。</li>
+</ol>
+<p>新系統保存完整的新預約異動紀錄，但不承諾自動複製原 LINE 後台所有人工聊天。這是根據標準 Webhook 事件範圍作的整合邊界判斷，原生人工發話同步需另外驗證。正式上線前要實測原 LINE 聊天與 Webhook 的設定共存、歡迎訊息不重複，以及人工接手後自動回覆確實停止。<a href="https://developers.line.biz/en/docs/messaging-api/receiving-messages/">LINE 接收訊息與 Webhook</a></p>
+<h2>8. 不搬舊資料的上線交接</h2>
+<p>不匯入舊姓名、電話、履歷或聊天。上線後的新預約才建立主檔；上線前已約好的對象仍在原 LINE 管理。</p>
+<p>使用者已確認沿用名額解讀，不改成不限人數：不要求提供舊場次人數、不建立交接保留名額；新系統仍按每組 5 人限制，加上人工預約後現場合計超過人數可接受。</p>
+<p>例如舊人工或系統外另約 3 人，新系統仍可收 5 人，現場合計可能 8 人；不能因此讓第 6 人在新系統自助預約成功。系統內代約按正常名額處理，不另增加超額補登功能。</p>
+<p>上線前舊約及未登錄的人工另約，其改期取消仍回原 LINE 處理，不新增舊名單或保留名額欄位。後台人數及匯出明示「新系統預約紀錄，不含未登錄的人工預約」，不保證等於現場總人數；也不要求等待舊約全部結束才能上線。</p>
+<h2>9. 零新增費用路線及限制</h2>
+<h3>現有 AI 訂閱能做什麼</h3>
+<p>ChatGPT Pro 與 OpenAI API 分開計費，Pro 不包含此 LINE 應用的 API 用量。Claude Max 訂閱也不包含 Claude API。既有訂閱可依各自方案使用開發工具協助製作與維護，不能直接視為對外 LINE 機器人的免費 API 額度。<a href="https://help.openai.com/en/articles/9039756-managing-billing-for-chatgpt-and-the-api-platform">OpenAI 官方計費說明</a>、<a href="https://support.claude.com/en/articles/9876003-i-have-a-paid-claude-subscription-pro-max-team-or-enterprise-plans-why-do-i-have-to-pay-separately-to-use-the-claude-api-and-console">Claude 官方訂閱與 API 說明</a></p>
+<p>首版建議不呼叫 AI API，故該項用量為 0；並非以自動操作 ChatGPT／Claude 網頁或挪用訂閱登入憑證當成機器人 API。需要自由文字理解時，再提出可選 API 方案、估算用量與費用上限，核准後才接。</p>
+<h3>預算表</h3>
+<p>以下查核日期為 2026-09-06，不是代建業者報價，也不包含使用者既有訂閱費。</p>
+<div class="scrolltable"><table>
+<thead>
+<tr>
+<th>項目</th>
+<th>首版方向</th>
+<th>可能新增費用的情況</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>LINE 官方帳號</td>
+<td>優先沿用輕用量方案，月費 0 元</td>
+<td>主動 Push 超過免費額度而需要升級；是否升級由使用者決定</td>
+</tr>
+<tr>
+<td>即時互動回覆</td>
+<td>候選人送出訊息／Postback 後即時用 Reply API 回應</td>
+<td>不能把延遲提醒、後端主動通知也當成免費 Reply</td>
+</tr>
+<tr>
+<td>AI 模型</td>
+<td>不接生成式 AI API，API 費 0</td>
+<td>未來選配 OpenAI／Claude API，另依用量計費</td>
+</tr>
+<tr>
+<td>主機及資料庫</td>
+<td>先評估 Cloudflare Workers Free + D1 Free</td>
+<td>超額、CPU 等限制不符實測、需要升級；Workers 付費方案最低 US$5／月，另有超量費</td>
+</tr>
+<tr>
+<td>網址</td>
+<td>測試可先用供應商提供的網址</td>
+<td>正式建議公司既有網域的子網域；沒有既有網域時可能有網域年費</td>
+</tr>
+<tr>
+<td>客服外掛、簡訊、提醒</td>
+<td>首版不購買、不提供 SMS 驗證、不啟用排程提醒</td>
+<td>日後購買第三方預約工具、發簡訊或啟用主動提醒</td>
+</tr>
+<tr>
+<td>開發及維護</td>
+<td>在現有開發工具訂閱額度內協作，不另採購平台</td>
+<td>超額工具點數、外包、代維護、備份儲存或付費監控；故障處理仍需人力</td>
+</tr>
+</tbody></table></div>
+<p>LINE 的 Reply API 不計入月訊息額度，Push／群發等會計入。原 LINE 後台的一對一聊天也是免付費訊息；不能把主管在原後台的延遲聊天，誤說成必定使用付費 Push。<a href="https://developers.line.biz/en/docs/messaging-api/pricing/">LINE Messaging API 計費</a>、<a href="https://tw.linebiz.com/column/LINEOA-2026-Price-Plan/">台灣官方方案及免付費訊息</a></p>
+<p>因此，首版最後確認放在聊天室按鈕，利用當次事件即時回覆。若日後改用網頁短表單，表單送出後由伺服器主動發 LINE 成功通知，通常須另評估 Push，不直接套用同一零訊息費假設。Reply 的時效與一次性使用限制仍須在串接時驗證；重試失敗不能默默改用付費 Push。</p>
+<p>台灣輕用量每月含 200 則計量訊息。中用量目前未稅 800 元／月、含 3,000 則；已公告 2026-11-01 改為未稅 1,000 元。高用量目前未稅 1,200 元、含 6,000 則，11/1 改 1,400 元。首版不預設要升級。假設每月有 300 人完成預約、每人主動推播一次提醒，即為 300 則，已超過輕用量 200 則；每日來訊 10～20 人不能直接推定都有預約或都要付費。<a href="https://tw.linebiz.com/column/LINEOA-2026-Price-Plan/">台灣 LINE 官方公告</a></p>
+<p>Cloudflare 現行免費額度包括 Workers 每日 100,000 次請求；D1 每日讀取 500 萬列、寫入 100,000 列、總儲存 5 GB。依本案 10～20 位來訊及 2～3 位同仁推估，適合作為低費用測試起點；仍需實測 CPU、索引、登入、備份及其他同帳號服務共用額度，不能只看人數保證足夠。免費額度用盡可能服務失敗，不是保證自動免費擴容。<a href="https://developers.cloudflare.com/workers/platform/pricing/">Workers 價格</a>、<a href="https://developers.cloudflare.com/d1/platform/pricing/">D1 價格及超額行為</a></p>
+<p>Cloudflare 官方建議正式用途使用自有網域或路由，而非將 <code>workers.dev</code> 作為業務關鍵服務網址。測試可不買網域，正式上線前先查公司是否已有可用子網域。<a href="https://developers.cloudflare.com/workers/configuration/routing/workers-dev/">workers.dev 使用限制</a></p>
+<p>費用防線：不啟用付費 AI、不升級付費主機、不購買外掛、不自動充值；不影響既有其他系統的帳務設定。正式測試核對登入及備份是否會另收費。免費方案接近限制時由同仁決定縮減使用或核准升級，系統故障不得回覆「預約成功」。</p>
+<h2>10. 正式架構與安全底線</h2>
+<p><code>LINE 訊息／按鈕 → 簽章驗證 Webhook → 規則及預約服務 → 持久資料庫 → 即時 Reply</code></p>
+<p><code>同仁登入的預約後台 → 同一預約服務與資料庫</code></p>
+<p>建議先以 Cloudflare Workers + D1 驗證低用量方案；不是已部署或已完成容量測試。資料庫是人數與預約唯一依據，Google Sheet 不作為名額鎖定主檔，也不要求另外建立表單。</p>
+<p>必備：LINE 簽章驗證、事件去重、同人重複預約防護、資料庫原子名額操作、並發改期測試、過期按鈕驗證、管理者登入白名單、個資查詢授權、敏感資訊不進前端、備份還原及發送結果紀錄。查詢自己的預約須驗證 LINE 身分，不能只知道姓名電話就看到他人資料。</p>
+<p>只保留必要預約資料與異動事件；未完成預約的對話狀態短期保存，完整聊天備份不是首版功能。預設保存 1 年已確認；實作按該筆面試日期起算 1 個曆年，改期採最後確認的面試日期，取消採原定日期。這是保存規則的實作口徑，不宣稱為法定期限。</p>
+<p>到期清除該筆可識別個資及關聯備註時，不連帶刪除同一人其他尚在保存期的預約。個資用途告知、聯絡窗口、備份與匯出檔的到期處理在正式上線前落實；本輪沒有執行資料刪除。測試一律用虛構姓名電話。</p>
+<h2>11. 更新後驗收清單</h2>
+<ol>
+<li>社宅顧問、儲備主管及行政可直接預約；行政只出現週三 14:00、文心路、TOBY。</li>
+<li>台中使用現行時段；南投分流後占實際面試分公司的同一組名額。</li>
+<li>一般已有 4 人時，兩位不同求職者同時確認只成功 1 位，第 6 位改選；行政組不受一般額滿影響，反之亦然。</li>
+<li>同人連點、事件重送及重試只建立一次；資料庫未寫入不得顯示成功。</li>
+<li>台灣時區 14 天邊界正確；14:00 場於 12:59 可約，13:00 不可約，停開日期不可約。</li>
+<li>改期時新組滿額保持原約；成功才舊組減一、新組加一；取消釋出名額且歷程仍可查。</li>
+<li>不需要舊約名單或人數即可啟用；不設交接保留名額。新系統各組 5 人計數不扣未登錄的人工預約，所有人數明示統計範圍。即使人工另約導致現場超額，新系統仍阻擋各組第 6 人。</li>
+<li>所有授權同仁跨電腦看到同一份資料，可修改設定、發布罐頭、匯出及關閉場次；未授權者不能查；各場新系統人數與名單、匯出一致。</li>
+<li>真正 <code>.xlsx</code> 可開啟，電話按文字保存，不匯出憑證；沒有報到／未到必填操作。</li>
+<li>按「人工接手」後，該人自由文字不觸發自動回覆；其他求職者流程不受影響。重新開啟後台仍保留暫停狀態，只有按「恢復自動」才恢復；原 LINE 人工與機器人不互相插話。保留操作同仁及時間，不把按鈕操作當作已發送聊天訊息。</li>
+<li>修改時段／罐頭有預覽、版本、操作者，不改寫舊預約快照；原歡迎訊息不重複發送。</li>
+<li>LINE 回覆失敗和預約失敗分開顯示；不因免費服務故障亂發成功，也不自動啟用付費補發。</li>
+<li>測試帳號完成手機端流程，驗證免費額度、登入與備份還原；經核准才設定正式 Webhook。</li>
+<li>一年保存期限按面試日期處理，改期、取消及同人多筆歷史不誤刪較新預約；首版沒有自動面試提醒。</li>
+</ol>
+<h2>12. 上線前資料與核對</h2>
+<p>十項操作決策全部完成。已確認：不接付費 AI、四欄必要資料、來源選填、一人一筆未來有效預約、開始前可取消、全體授權同仁可操作全部功能、人工接手／恢復自動、舊約不搬也不保留名額、保存一年、不做自動提醒、所有同仁可管停辦。分組各 5 人不改為不限額，額外人工安排造成現場超額可接受；14 天、提前 1 小時與直接預約亦保留，不再重複詢問。</p>
+<div class="scrolltable"><table>
+<thead>
+<tr>
+<th>時機</th>
+<th>項目</th>
+<th>建議或所需資料</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>上線前資料</td>
+<td>個資聯絡窗口</td>
+<td>保存一年已確認，只需提供用途告知的聯絡方式</td>
+</tr>
+<tr>
+<td>上線前操作</td>
+<td>假日停開及臨時停辦通知</td>
+<td>所有授權同仁都可關閉場次；由執行同仁依受影響名單回原 LINE 人工通知，不做自動提醒或付費推播</td>
+</tr>
+<tr>
+<td>串接時</td>
+<td>公司雲端帳號、可用子網域、2～3 位同仁登入信箱、正式上線時間</td>
+<td>密碼及驗證碼由本人在登入畫面輸入，不貼在對話或文件</td>
+</tr>
+<tr>
+<td>可延後</td>
+<td>行政 FAQ、104／1111 來源連結</td>
+<td>FAQ 未核定先人工；來源未知不阻擋預約，不需人力銀行密碼</td>
+</tr>
+</tbody></table></div>
+<h2>13. 本交接包閱讀與權威順序</h2>
+<p>本文件為已核定需求的整合副本，沒有把每組 5 人改成不限額。技術設計見 02，AI 指令見 03，正式驗收見 04，初始化規則與罐頭見 05。06 本機原型與 07 簡報已重新對齊主要規則，但不代表正式串接已完成。08 記錄本次實際驗證界線。</p>
+<p>衝突優先序：公司後續明確核准的變更 &gt; 本文件 &gt; 02 技術設計 &gt; 05 設定 &gt; 04 驗收 &gt; 簡報與原型。已核定業務不再重問；實作建議、待補帳號與上線前校稿應明確區分。若原型缺少功能，以文字規格實作正式版，不用原型限制縮減需求。</p>
+<p>舊版 v1.3 簡報、六月原型及 v2 規劃沒有放入本包，避免「不限額、新收件匣、提前2小時、權限分級、報到／未到」等歷史提案誤導接手者。原工作區歷史檔案未刪除。</p>
+</article></details><details id="doc-1" ><summary>02-original-architecture.md · 技術架構</summary><article><h1>星鴻 LINE 面試預約：技術架構與資料設計</h1>
+<p>交接版 H1｜2026-09-07｜供同事及其 AI 建置，非已上線服務。</p>
+<p>本文件補充 <code>01-requirements.md</code> 的工程細節。業務規則以 01 為準；以下明標的「實作建議」可以在不改變已核定行為、不新增費用的前提下調整。不得把原型 localStorage 搬上網就稱為正式後端。</p>
+<h2>1. 系統分工</h2>
+<pre><code class="language-text">104／1111 的既有 LINE 入口
+          ↓
+LINE @064lhzfu 聊天室
+使用者訊息／Quick Reply／Postback
+          ↓ HTTPS
+Webhook 接收層：原始 body 簽章驗證、來源檢查、事件去重
+          ↓
+對話狀態機 ── 人工接手狀態檢查 ── 核定罐頭版本
+          ↓
+共同預約服務：身分、職缺地區、截止、容量、取消、改期
+          ↓ 原子操作
+持久資料庫：預約、場次、異動、設定、人工狀態、發送結果
+          ↓ 儲存成功後
+LINE Reply API：當次即時確認；失敗不偷偷改用 Push
+
+同仁瀏覽器 → 登入與授權 → 新預約管理後台 → 同一預約服務／資料庫
+同仁人工聊天 → 原 LINE 官方帳號後台（不建新收件匣）
+</code></pre>
+<p>LINE 聊天與新後台共用業務服務，不能有兩套計數或兩套改期邏輯。原 LINE 的人工聊天不被假設為能完整同步到新資料庫。新後台的「完整紀錄」指上線後新預約與其異動，不是舊聊天備份或原 LINE 全量對話。</p>
+<h2>2. 建議技術選型</h2>
+<div class="scrolltable"><table>
+<thead>
+<tr>
+<th>層次</th>
+<th>首選評估方案</th>
+<th>選擇原因／限制</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Webhook 與 API</td>
+<td>TypeScript、Cloudflare Workers Free</td>
+<td>單一小型服務；先核對現行 SDK、執行限制及免費額度</td>
+</tr>
+<tr>
+<td>持久資料</td>
+<td>Cloudflare D1</td>
+<td>可使用關聯式約束及批次交易；不能用試算表或瀏覽器記憶體占名額</td>
+</tr>
+<tr>
+<td>管理網頁</td>
+<td>現有專案框架優先；沒有則小型 TypeScript 前端</td>
+<td>不為首版另外引入大型 CRM、微服務或付費 UI 工具</td>
+</tr>
+<tr>
+<td>管理者登入</td>
+<td>公司既有 IdP／OIDC，或評估 Access 白名單</td>
+<td>每人獨立身分、全部同權限；帳號及方案尚未取得，不承諾已可免費使用</td>
+</tr>
+<tr>
+<td>LINE 介面</td>
+<td>聊天室文字 + Quick Reply／Postback</td>
+<td>不強制 LIFF；正式確認在聊天事件內完成</td>
+</tr>
+<tr>
+<td>匯出</td>
+<td>成熟 XLSX 程式庫</td>
+<td>真正 .xlsx，電話保留文字；不能 CSV 改副檔名</td>
+</tr>
+<tr>
+<td>開發／驗證</td>
+<td>鎖定相依版本、單元測試、資料庫整合測試、Playwright</td>
+<td>優先使用專案已存在的工具，不另購服務</td>
+</tr>
+<tr>
+<td>設定</td>
+<td>SQL 設定資料＋版本</td>
+<td>JSON 是初始化輸入，不是第二份即時主檔</td>
+</tr>
+</tbody></table></div>
+<p>這是可行性起點，不是強制已選好的雲端供應商。若免費方案無法通過 CPU、登入、備份及並發驗證，先出具限制與替代方案，不能擅自升級或假稱免費。測試可用供應商網址，正式優先使用公司已有子網域。</p>
+<p>建議目錄：<code>apps/worker</code>、<code>apps/admin</code>、<code>packages/domain</code>、<code>db/migrations</code>、<code>tests/unit</code>、<code>tests/integration</code>、<code>tests/e2e</code>、<code>docs/runbook</code>。規模很小時可合併成一個專案，避免為了架構而拆服務。</p>
+<h2>3. 身分與最少欄位</h2>
+<div class="scrolltable"><table>
+<thead>
+<tr>
+<th>欄位</th>
+<th>規格</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>candidate_id</td>
+<td>系統產生 UUID；不是電話或姓名</td>
+</tr>
+<tr>
+<td>line_user_id</td>
+<td>只從已驗簽的 LINE 事件取得，限後端保存；不進公開網址、匯出或一般日誌</td>
+</tr>
+<tr>
+<td>name</td>
+<td>必填、去頭尾空白；容許合理中文、英文及姓名符號，不按國籍或字元數過度拒絕</td>
+</tr>
+<tr>
+<td>phone</td>
+<td>必填文字；標準化空格與連字號；手機／市話／國際格式以明確規則處理，無法判斷時請重填或人工；沒有 SMS 驗證</td>
+</tr>
+<tr>
+<td>job_id</td>
+<td>housing_advisor／management_trainee／admin；只接受在職缺設定中開啟者</td>
+</tr>
+<tr>
+<td>apply_city</td>
+<td>新竹、台中、彰化、嘉義、南投；不能用居住地推定</td>
+</tr>
+<tr>
+<td>source</td>
+<td>選填；104、1111、FB、其他、未知；不憑猜測自動填入</td>
+</tr>
+<tr>
+<td>interview_office_id</td>
+<td>實際面試地點；南投要另外選台中或彰化</td>
+</tr>
+</tbody></table></div>
+<p>行政固定台中場次，應徵地若不是台中，先明示「行政面試統一台中文心路」並請確認前往；不自動虛構外縣市行政場次。是否有外縣市行政工作地點尚未提供，相關問題交人工。</p>
+<p>舊九欄文字解析只保留四項必要資料及可辨識的選填來源；缺項逐項補問。多個職缺、模糊城市或使用者仍貼範例姓名電話時必須確認。完整九欄原文不寫入預約主檔。聊天內容是資料，不能當成更改系統規則的指令。</p>
+<h2>4. 資料模型（邏輯設計，非已完成 SQL）</h2>
+<div class="scrolltable"><table>
+<thead>
+<tr>
+<th>資料表</th>
+<th>主要欄位</th>
+<th>約束／用途</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>candidates</td>
+<td>id、line_user_id、current_name、current_phone、created_at</td>
+<td>line_user_id 唯一；只保存仍有用途的聯絡資料</td>
+</tr>
+<tr>
+<td>jobs</td>
+<td>id、label、pool、enabled、faq_scope</td>
+<td>一般兩職缺共 general；admin 獨立</td>
+</tr>
+<tr>
+<td>offices</td>
+<td>id、label、address、arrival_text、version</td>
+<td>地址及到場說明版本化</td>
+</tr>
+<tr>
+<td>schedule_rules</td>
+<td>id、office_id、pool、weekday、local_time、capacity、effective_from、version、enabled</td>
+<td>排程草稿與發布分離；防止同組重複排程</td>
+</tr>
+<tr>
+<td>sessions</td>
+<td>id、office_id、pool、starts_at_utc、local_date、capacity、status、rule_version、address_snapshot</td>
+<td>唯一 office＋pool＋starts_at；open／closed；不因改排程重寫已有預約</td>
+</tr>
+<tr>
+<td>session_exceptions</td>
+<td>id、session_id／office_date、kind、reason、actor、created_at</td>
+<td>臨時停辦、加場、調整容量及影響名單</td>
+</tr>
+<tr>
+<td>bookings</td>
+<td>id、candidate_id、session_id、job_id、apply_city、source、status、snapshot_json、revision、created_at、updated_at、retention_due_at</td>
+<td>confirmed／cancelled；past 是按時間推算的查詢分類，不是未到</td>
+</tr>
+<tr>
+<td>booking_events</td>
+<td>id、booking_id、type、before_summary、after_summary、actor、idempotency_key、at</td>
+<td>新約、改期、取消、代操作；事件不重複。個資也受保存期限約束</td>
+</tr>
+<tr>
+<td>active_booking_guards</td>
+<td>candidate_id、booking_id、starts_at_utc</td>
+<td>每人一個尚未開始的有效預約保護；建立新約前在同一交易釋放已過期 guard</td>
+</tr>
+<tr>
+<td>conversation_states</td>
+<td>candidate_id、mode、step、draft_minimal_json、revision、expires_at、assigned_actor、changed_at</td>
+<td>mode 為 auto／pending_human／human；人工模式不因一般草稿到期而清除</td>
+</tr>
+<tr>
+<td>template_versions</td>
+<td>key、scope、version、content、status、published_by、published_at</td>
+<td>draft／published；發布前驗變數，成功訊息使用預約快照</td>
+</tr>
+<tr>
+<td>webhook_events</td>
+<td>channel_id、event_id、event_time、type、processing_status、lease_until、result_ref、expires_at</td>
+<td>唯一 channel＋event；接收、處理完成、可重試失敗要區分</td>
+</tr>
+<tr>
+<td>delivery_attempts</td>
+<td>id、booking_id、event_id、reply_status、error_code、attempted_at</td>
+<td>預約是否成立與訊息有無送達分開；不保存可重放的 reply token</td>
+</tr>
+<tr>
+<td>admin_users</td>
+<td>id、identity_subject、email、enabled、last_login_at</td>
+<td>每人獨立白名單；所有啟用同仁同等功能</td>
+</tr>
+<tr>
+<td>audit_events</td>
+<td>id、actor_id、action、entity_id、redacted_diff、at、request_id</td>
+<td>罐頭、容量、停辦、人工接手、匯出與登入異動</td>
+</tr>
+</tbody></table></div>
+<p>索引至少涵蓋：sessions(local_date, office_id, pool)、bookings(session_id, status)、bookings(candidate_id, status)、bookings(retention_due_at)、conversation_states(mode)、事件唯一鍵。姓名電話搜尋需設計索引或限制查詢，避免每次全表掃描耗盡免費讀取額度。</p>
+<p>快照至少含姓名、電話、應徵地、職務、面試地址、日期時間、到場說明、行政主管及模板版本。地址顯示須帶地標：彰化「國泰銀行樓上」、嘉義「旅遊家左邊樓梯上樓」；05 的 landmark 若存在，合併到確認訊息的 address 顯示值。快照用於追查「當時確認了什麼」；保留不代表個資可永久保存。個資清除應同步涵蓋快照、事件與備註。</p>
+<h2>5. 場次與時間演算法</h2>
+<ol>
+<li>所有伺服器時間由可信時鐘取得，儲存 UTC；顯示與曆日生成一律 Asia/Taipei。</li>
+<li>實作口徑：含今天共 14 個台灣曆日，即 today 至 today＋13，非往後 336 小時滑動視窗。</li>
+<li>依職缺映射 general／admin，依面試地點找到排程；南投不產生另一套場次。</li>
+<li>生成具體日期時間，再套停辦、加場、生效版本。場次唯一鍵避免重複生成。</li>
+<li>可約條件：在 14 天內、排程有效、場次開啟、<code>now &lt; starts_at - 60 minutes</code>、該組尚有名額。</li>
+<li>14:00 場 12:59:59 可約，13:00:00 起不可新約。正式版以伺服器收到且處理確認操作時的檢查為準，使用者手機時間不算。</li>
+<li>列表不是占位；最後確認重新檢查全部條件。日期超出範圍、按鈕過期或滿額請重選，不猜另一場。</li>
+<li>取消條件：<code>now &lt; starts_at</code>，開始瞬間及之後不可自助取消；改期的新場次仍遵守一小時截止。原約已開始後，不提供自助修改過去預約。</li>
+</ol>
+<p>目前沒有優先保留名額、候補或人工超額通道。後台內的人工代約和求職者自助預約走同一容量規則。</p>
+<h2>6. 原子占額與一人一約</h2>
+<p>以下是不變條件，不是可以直接貼到正式資料庫的 SQL：</p>
+<ul>
+<li>同一 office＋datetime＋pool 的 confirmed 計數不得因新約超過 capacity；降低容量可以造成既有數大於新容量，但不得刪人或再收新約。</li>
+<li>每個 candidate 在同一瞬間最多一筆 starts_at 大於目前時間的 confirmed 預約。</li>
+<li>同一業務操作重送只建立一次；相同冪等鍵但不同 payload 必須拒絕。</li>
+<li>事件、預約、占額與異動歷程要一致，不能其中一半成功。</li>
+</ul>
+<p>建議以資料庫內條件式寫入、唯一約束／觸發器與交易實作；對「條件不符而更新 0 列」明確處理，不能視為成功再寫入下一筆。Cloudflare D1 的 <code>batch()</code> 提供順序執行與失敗回滾，但應用端在 batch 外「先 SELECT 數人數，再無條件 INSERT」仍然不安全。必須讓名額與唯一身分條件在資料庫寫入當下成立，並以真實 D1 整合測試證明。<a href="https://developers.cloudflare.com/d1/worker-api/d1-database/">D1 batch 官方說明</a></p>
+<p>不可用 <code>UNIQUE(candidate_id, status)</code> 永久限制 confirmed：過去已面試的預約可以保留，該人仍可再約未來場次。可採 active guard 或等價設計；釋放舊 guard 和建立新 guard 必須與新約同交易，不依賴每日排程剛好有執行。</p>
+<p>新增流程：驗證身分與 payload → 檢查人工模式 → 讀取／驗證操作版本 → 在同一原子操作核對截止、停辦、容量、一人一約及冪等 → 建立預約與事件 → commit → 嘗試 Reply → 記錄發送結果。</p>
+<p>改期流程：核對擁有權與 revision → 新場重新驗容量及截止 → 同一交易轉移占額、更新預約快照、增加改期事件 → commit。任何一步失敗，原 session_id、原名額及舊快照不變。不先取消再重新新增。</p>
+<p>取消流程：核對擁有權、開始前、再次確認的操作識別 → 原子更新 confirmed 至 cancelled、釋放 guard／占額、增加事件。重複取消返回原結果，不重複扣減。</p>
+<h2>7. Webhook 與可靠回覆</h2>
+<div class="scrolltable"><table>
+<thead>
+<tr>
+<th>情況</th>
+<th>必須的行為</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>簽章錯誤／缺失</td>
+<td>不解析執行業務、不寫預約；用原始 body 驗 HMAC，不重新 JSON 序列化後驗</td>
+</tr>
+<tr>
+<td>沒有事件的驗證請求</td>
+<td>合法請求回應成功，不製造候選人或預約</td>
+</tr>
+<tr>
+<td>相同 webhookEventId 重送</td>
+<td>查處理結果；完成則不重建，處理中／失敗依可恢復狀態處理，不能只插去重鍵就永遠吞掉</td>
+</tr>
+<tr>
+<td>不同事件同樣確認</td>
+<td>業務冪等與每人 guard 再防一次，不能只依 LINE 去重</td>
+</tr>
+<tr>
+<td>舊卡片、偽造 session_id</td>
+<td>查伺服器允許的職缺、場次、身分、revision，過期請更新選單</td>
+</tr>
+<tr>
+<td>資料庫失敗</td>
+<td>不回成功；保留可追查的錯誤碼及人工處理入口</td>
+</tr>
+<tr>
+<td>預約 commit 成功、Reply 失敗</td>
+<td>預約仍成立，標記通知待處理；同仁回原 LINE 確認；使用者查「我的預約」可讀原結果</td>
+</tr>
+<tr>
+<td>Reply token 過期／已使用</td>
+<td>遵守現行 LINE 限制；不無限重試、不自動改用計費 Push</td>
+</tr>
+<tr>
+<td>事件晚到／亂序</td>
+<td>以狀態 revision 及目前預約為準；時間戳協助判斷，不讓舊訊息取消新約</td>
+</tr>
+<tr>
+<td>圖片、貼圖、未知問題</td>
+<td>不把媒體當姓名電話；回可用選單或按規則轉人工</td>
+</tr>
+<tr>
+<td>加入好友／歡迎訊息</td>
+<td>沿用原後台歡迎訊息，bot 不重複發送九欄或新歡迎文案</td>
+</tr>
+</tbody></table></div>
+<p>Webhook 不能只回 200 後把未持久工作丟到會結束的記憶體背景。若採非同步處理，先選擇具耐久性且通過費用審查的機制，定義重試與卡住工作恢復。首版規模小，優先保持流程簡單且在 Reply 時效內完成。<a href="https://developers.line.biz/en/docs/messaging-api/receiving-messages/">LINE Webhook 官方說明</a></p>
+<p>首版每個日期／時間按鈕數量需分頁；Quick Reply 上限 13 個，手機以外需有可讀文字入口。按鈕帶 opaque id，不帶可修改的完整個資。以「我要四點」等文字只能找到候選場次並再次確認，「只有四點嗎」不能直接成立預約。<a href="https://developers.line.biz/en/docs/messaging-api/using-quick-reply/">Quick Reply 官方規格</a></p>
+<h2>8. 對話與人工接手狀態機</h2>
+<p>預約狀態與對話模式分開，不能用「人工接手」覆蓋 confirmed 預約狀態。</p>
+<pre><code class="language-text">auto: 選職缺 → 選應徵地 → 南投選面試地 → 收姓名 → 收電話
+      → 選填來源 → 日期 → 時段 → 核對 → 確認成功
+任何階段 → FAQ（回答後仍保留原步驟）
+任何階段 → 要求人工／未知問題 → pending_human
+pending_human → 同仁按「人工接手」 → human
+auto → 同仁主動按「人工接手」 → human
+human／pending_human → 同仁按「恢復自動」 → auto
+</code></pre>
+<p>「人工接手」完成標準是狀態已持久寫入、後端查得到，才提示同仁回原 LINE。發送自動回覆前再核對最新模式，降低已進佇列回覆與人工接手的競爭；已發出的訊息無法倒退撤銷，必須在測試中記錄此邊界。人工狀態不因重載、換電腦、收到下一則訊息或草稿逾時自動解除。</p>
+<p>實作建議：pending_human／human 期間所有自助異動交人工，舊確認按鈕也不可偷偷成立新約。後台可查既有預約；若提供求職者唯讀查詢，不能因此恢復自動聊天。本案原型採「暫停自助操作，交同仁處理」展示此邊界。此細節是保守實作口徑，不新增自動解除規則。</p>
+<p>清單只顯示必要識別資料、最後預約、原因、模式、接手人及時間；有「開啟原 LINE 後台」一般連結即可。未驗證前不要承諾可深連到特定求職者的原生聊天室。原 LINE 聊天內容由同仁自行查找，本次與後續測試禁止點開未讀訊息。</p>
+<h2>9. 管理後台詳細功能</h2>
+<div class="scrolltable"><table>
+<thead>
+<tr>
+<th>頁面</th>
+<th>主要控制</th>
+<th>成功／空白／失敗處理</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>場次總覽</td>
+<td>面試日期區間、面試地、分組；已約／容量／剩餘；點進名單</td>
+<td>無場次顯示無符合場次；所有人數加註不含未登錄人工預約</td>
+</tr>
+<tr>
+<td>預約查詢</td>
+<td>日期、職缺、應徵地、面試地、狀態、姓名／電話／編號</td>
+<td>分頁且條件保留；載入失敗不能顯示成 0 人</td>
+</tr>
+<tr>
+<td>明細</td>
+<td>確認快照、異動歷程、必要備註、改期／取消／人工接手</td>
+<td>版本衝突請重新載入；不提供報到、未到或到場率</td>
+</tr>
+<tr>
+<td>同仁代約</td>
+<td>從已有 LINE 身分選人，沿用四項資料，選有效場次</td>
+<td>同樣檢查 5 人與一人一約；不能以任意電話偽造 LINE 身分</td>
+</tr>
+<tr>
+<td>時段設定</td>
+<td>地點與分組、星期時間、容量、生效日、草稿、影響預覽、發布</td>
+<td>不自動改已有預約；顯示確切受影響場次與名單</td>
+</tr>
+<tr>
+<td>單次停辦／加場</td>
+<td>具體日期與分組、原因、確認</td>
+<td>關閉後不再新約；保留既有預約及待人工通知清單</td>
+</tr>
+<tr>
+<td>罐頭管理</td>
+<td>分類、適用範圍、變數、草稿、預覽、發布、版本</td>
+<td>草稿不影響線上；未知變數或必要欄位缺失阻擋發布</td>
+</tr>
+<tr>
+<td>人工清單</td>
+<td>待人工、接手人、人工接手／恢復自動</td>
+<td>不放新的聊天輸入框，不把按接手當成已聯絡</td>
+</tr>
+<tr>
+<td>匯出</td>
+<td>目前篩選結果 .xlsx</td>
+<td>含完整符合資料非僅當前分頁，下載前說明含個資及統計範圍</td>
+</tr>
+</tbody></table></div>
+<p>同仁代約若改期／取消成功，系統記下 operator，不自動用候選人的不存在 Reply token 發 LINE。由同仁回原 LINE 通知。每位同仁同權限，但需個別登入以保留責任。</p>
+<h2>10. 統計與 XLSX 合約</h2>
+<p>統計日預設用面試日期；有效預約是狀態 confirmed，歷史已過日期亦可列為歷史預約，不宣稱已出席。未來有效約的「尚未開始」只用於每人 guard。取消不占名額，改期只歸新場，原場只保留事件。</p>
+<p>彙總粒度為面試地＋具體時點＋general/admin。總覽→分組→名單→匯出同一 filter contract，不能 general 分開各職缺再各套 5。新增日另標「建立日期」，不可混到面試日報表。</p>
+<p>建議 XLSX 欄位順序：預約編號、姓名、電話、應徵職務、應徵縣市、面試分公司、面試日期、面試時間、面試分組、預約狀態、加入來源、面試主管、建立時間、最後異動時間、最後操作人。欄位核定前以此最小清單實作，不另輸出原九欄或 LINE userId。</p>
+<p>第一張工作表為名單，第二張可為匯出條件與統計說明。電話儲存文字；含 <code>= + - @</code> 等使用者輸入必須作字串儲存，不成公式。匯出數量需等於所有分頁的符合筆數，不能只取前 100 筆；無符合資料仍能產出清楚空表。</p>
+<h2>11. 設定發布與既有預約</h2>
+<p>週期排程與單一場次分開。修改每週時段先預覽與生效日期，發布影響後續可選場次，不默默搬動已約的人。既有已約場次若不再對新約開放，可標關閉招生而保留既有安排；真正取消辦理需另外執行停辦操作並列待人工通知。</p>
+<p>降低容量：已約 4 人改成 3，4 人全部保留、剩餘為 0、停止新約，警告已有數超出新容量；不能自動刪第 4 人。提高容量也需留操作者與版本。預設各組 5 是已核定起始設定，不是禁止授權同仁日後明確調整。</p>
+<p>罐頭正文可維護，預約 ID、日期時間、地點等關鍵變數不可刪除到造成資訊不完整。版本發布只影響日後回覆，不改當時已送文字與預約快照。原 LINE 既有預設訊息不承諾同步，必要時同仁自行複製更新；歡迎訊息未獲核准不改。</p>
+<h2>12. 安全、個資與保存</h2>
+<p>這是工程治理清單，不是法律意見。用途告知內容與適法性由公司確認。保存 1 年是使用者選定的產品規則，不宣稱法定期限。</p>
+<ul>
+<li>只接受 HTTPS；所有 admin API 驗登入與白名單，不只隱藏前端按鈕。若使用 Access/OIDC，驗 JWT 簽章、issuer、audience、expiry，不直接信任客戶端 email header。</li>
+<li>Secrets 僅由本人在雲端秘密管理介面／本機安全環境輸入；不進 Git、PPT、JSON、瀏覽器或給 AI 的文字。測試與正式 token／DB 分離。</li>
+<li>Session cookie 需 Secure、HttpOnly、合適 SameSite；依認證方式落實 CSRF、防 XSS、輸入長度限制、參數化 SQL、同源政策及節流。</li>
+<li>敏感回應不 CDN 公開快取；分享出去的 ZIP 不含真實求職者、履歷、聊天、token、密碼或登入工作階段。</li>
+<li>保存期按面試日加一個曆年；改期採最後確認日期，取消採原定日期。閏年 2/29 到期日建議落次年 2/28，明列測試。</li>
+<li>到期先 dry-run 列範圍，依核定機制清除該筆可識別資料、快照、備註和關聯事件的個資；不刪同一人較新的預約。不需為「完整歷程」永久保留姓名電話。</li>
+<li>未完成草稿、去重事件及技術日誌採最短必要 TTL，具體天數為待技術設計核定項目；人工 mode 的保存不被草稿 TTL 意外清除。</li>
+<li>備份與下載 XLSX 也有到期處理責任；備份復原後須重套刪除清單，避免個資復活。各種備份保留上限、存放位置與負責人於上線前確認。</li>
+<li>個資聯絡窗口、告知文字及公司資料保管人仍需提供；可先做無真實資料測試，不因欠此資料擅自真實上線。</li>
+</ul>
+<h2>13. 端點合約建議</h2>
+<p>候選人首版透過 LINE 事件使用服務，不需要公開允許以 userId 查他人預約的 REST API。下列管理端點全須登入。</p>
+<div class="scrolltable"><table>
+<thead>
+<tr>
+<th>方法／路徑</th>
+<th>功能</th>
+<th>關鍵控制</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>POST /webhooks/line</td>
+<td>接收 LINE 事件</td>
+<td>原始 body 驗簽、去重、事件模式檢查</td>
+</tr>
+<tr>
+<td>GET /api/admin/sessions</td>
+<td>篩選場次與容量</td>
+<td>用面試日期，回傳統計口徑</td>
+</tr>
+<tr>
+<td>GET /api/admin/bookings</td>
+<td>篩選／分頁／搜尋</td>
+<td>對應匯出同一 filter</td>
+</tr>
+<tr>
+<td>GET /api/admin/bookings/:id</td>
+<td>明細與異動</td>
+<td>授權，不公開個資</td>
+</tr>
+<tr>
+<td>POST /api/admin/bookings</td>
+<td>對已有身分代約</td>
+<td>idempotency-key、有效場次、容量、operator</td>
+</tr>
+<tr>
+<td>POST /api/admin/bookings/:id/reschedule</td>
+<td>改期</td>
+<td>revision、原子轉移、截止</td>
+</tr>
+<tr>
+<td>POST /api/admin/bookings/:id/cancel</td>
+<td>取消</td>
+<td>二次確認、revision、開始前</td>
+</tr>
+<tr>
+<td>POST /api/admin/candidates/:id/handoff</td>
+<td>接手</td>
+<td>mode、operator、持久保存</td>
+</tr>
+<tr>
+<td>POST /api/admin/candidates/:id/resume</td>
+<td>恢復自動</td>
+<td>明確操作，不自動逾時</td>
+</tr>
+<tr>
+<td>POST /api/admin/schedules/preview</td>
+<td>草稿影響預覽</td>
+<td>生效日與確切受影響場次</td>
+</tr>
+<tr>
+<td>POST /api/admin/schedules/publish</td>
+<td>發布</td>
+<td>revision、稽核、不動既有快照</td>
+</tr>
+<tr>
+<td>POST /api/admin/sessions/:id/close</td>
+<td>停辦</td>
+<td>原因、影響名單、待人工通知</td>
+</tr>
+<tr>
+<td>POST /api/admin/templates/:key/publish</td>
+<td>罐頭發布</td>
+<td>適用範圍、必要變數、版本</td>
+</tr>
+<tr>
+<td>GET /api/admin/export.xlsx</td>
+<td>真正試算表下載</td>
+<td>同篩選、字串安全、匯出稽核</td>
+</tr>
+</tbody></table></div>
+<p>錯誤碼統一：UNAUTHORIZED、INVALID_INPUT、AMBIGUOUS_INPUT、NO_SLOT、SLOT_FULL、CUTOFF_PASSED、SESSION_CLOSED、ACTIVE_BOOKING_EXISTS、STALE_REVISION、HUMAN_HANDOFF、PERSISTENCE_FAILED。LINE 端轉親切繁體中文，不顯示 SQL、token 或內部 stack trace。</p>
+<h2>14. 建置階段與停止條件</h2>
+<div class="scrolltable"><table>
+<thead>
+<tr>
+<th>階段</th>
+<th>產出</th>
+<th>進入下一階段的門檻</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>A 接手與設計</td>
+<td>讀取清單、差異清單、技術 ADR、待補資料、費用假設</td>
+<td>不再重問已核定規則，先保留人工／5 人邊界</td>
+</tr>
+<tr>
+<td>B 核心服務</td>
+<td>migrations、rule engine、交易與冪等測試</td>
+<td>真實資料庫最後一名競爭、改期失敗回滾通過</td>
+</tr>
+<tr>
+<td>C 管理後台</td>
+<td>登入、全區查詢、設定、人工模式、XLSX</td>
+<td>多人共享狀態、授權及篩選一致通過</td>
+</tr>
+<tr>
+<td>D 專用測試 LINE</td>
+<td>真實手機互動、Reply、簽章、人工共存</td>
+<td>不重複歡迎、不插話、不用真實求職者測試</td>
+</tr>
+<tr>
+<td>E 正式切換</td>
+<td>備份還原演練、容量／費用報告、操作手冊、回退方案</td>
+<td>指定公司負責人書面核准才改正式 Webhook</td>
+</tr>
+<tr>
+<td>F 維護</td>
+<td>問題清單、日誌／額度查核、定期還原與保存清理</td>
+<td>不新增提醒、付費服務或業務規則除非另核准</td>
+</tr>
+</tbody></table></div>
+<p>這些階段沒有預先承諾工期。取得帳號、DNS、測試裝置和核准可能影響時程，AI 應在讀完現有程式與工具後估工，不憑本簡報聲稱一天即可正式上線。</p>
+<h2>15. 回退與維護手冊要點</h2>
+<p>正式切換前保存原 LINE 設定截圖／文字、舊 webhook 狀態及新服務版本。遇到錯誤時停止新的自助寫入，回人工安排；資料庫中已成立預約保留並供同仁查詢，不能刪除重建。</p>
+<p>回退優先使用後端全域維護開關停止新寫入並提供可用人工入口；關閉或恢復 webhook 設定須由授權者依切換紀錄處理，不自動批次修改 OA。若資料庫不可用，不假顯示 0 人或預約成功。人工在原 LINE 告知確認情況。</p>
+<p>每日營運：檢查待人工清單、通知失敗、關閉場次受影響者及服務錯誤；同仁仍在原 LINE 回覆。技術維護另檢查額度、登入撤權、備份與還原、到期個資處理。不安排自動面試提醒。</p>
+<h2>16. 官方參考與費用查核</h2>
+<p>查核日 2026-09-07。價格與免費額度可能改變，上線前再查；不把「每日僅 10～20 人」當成必然免費的證明。</p>
+<div class="scrolltable"><table>
+<thead>
+<tr>
+<th>事實／界線</th>
+<th>官方來源</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>LINE Reply 不計月訊息量，Push 類型另計；token 的使用限制仍需遵守</td>
+<td><a href="https://developers.line.biz/en/docs/messaging-api/pricing/">Messaging API 計費</a></td>
+</tr>
+<tr>
+<td>台灣輕用量月費 0，含 200 則計量訊息；中／高方案已有 2026-11-01 調價公告，首版不預設升級</td>
+<td><a href="https://tw.linebiz.com/column/LINEOA-2026-Price-Plan/">台灣 LINE 公告</a></td>
+</tr>
+<tr>
+<td>Workers Free 100,000 requests／日；付費起價 US$5／月，另可能有超量</td>
+<td><a href="https://developers.cloudflare.com/workers/platform/pricing/">Workers pricing</a></td>
+</tr>
+<tr>
+<td>D1 Free 每日 500 萬列讀取、10 萬列寫入、總容量 5 GB；免費超額可能失敗</td>
+<td><a href="https://developers.cloudflare.com/d1/platform/pricing/">D1 pricing</a></td>
+</tr>
+<tr>
+<td>workers.dev 不建議承載業務關鍵正式服務，需評估既有網域</td>
+<td><a href="https://developers.cloudflare.com/workers/configuration/routing/workers-dev/">workers.dev</a></td>
+</tr>
+<tr>
+<td>ChatGPT 訂閱與 API 帳務分開；不挪用訂閱登入當 bot API</td>
+<td><a href="https://help.openai.com/en/articles/9039756-managing-billing-for-chatgpt-and-the-api-platform">OpenAI 計費說明</a></td>
+</tr>
+<tr>
+<td>Claude 付費訂閱不包含 API／Console 用量</td>
+<td><a href="https://support.claude.com/en/articles/9876003-i-have-a-paid-claude-subscription-pro-max-team-or-enterprise-plans-why-do-i-have-to-pay-separately-to-use-the-claude-api-and-console">Claude 官方說明</a></td>
+</tr>
+</tbody></table></div>
+<p>上述建議不包含代建人力、備份儲存、可選網域年費、現有 AI 訂閱或日後加購。任何新增費用先列明項目、預估、上限及停止方式，未獲核准不購買。</p>
+</article></details><details id="doc-2" ><summary>03-original-ai-handoff.md · AI執行指令</summary><article><h1>同事的 AI 接手指令</h1>
+<p>適用 ChatGPT、Claude 或具檔案／程式工具的 AI。這是給開發助理的指令，不是要放進求職者機器人的付費模型 prompt。首版沒有生成式 AI API。</p>
+<h2>一、同事先做什麼</h2>
+<ol>
+<li>解壓縮整個交接包，先開 <code>00-start.html</code>；用簡報了解畫面，再看 01／02。</li>
+<li>在自己的 AI 開一個專案／對話，優先附上 01、02、04、05。AI 不能解 ZIP 時，分別附檔；不要只給 PPT 截圖。</li>
+<li>貼下面「總指令」。請 AI 先回讀取成功清單、核定規則與執行計畫。</li>
+<li>如果 AI 有程式工具，再依 A～E 分階段讓它執行；沒有工具時，要求它輸出完整程式檔、命令及檢查點，並坦承尚未執行。</li>
+<li>06 是可點選的本機畫面參考，不是正式服務，不能直接上傳後聲稱完成。</li>
+</ol>
+<h2>二、可直接貼上的總指令</h2>
+<pre><code class="language-text">你是本案的技術負責人與實作工程師。請用繁體中文協助我完成「星鴻 LINE 面試預約首版」。先完整閱讀附件，不要從零重問已決定的商業規則。
+
+資料優先序：我在這個對話後續明確核准的變更 &gt; 01-requirements.md &gt; 02-original-architecture.md &gt; 05-config.json &gt; 04-acceptance.md &gt; 簡報與本機原型。若不同檔案矛盾，列出精確差異並先依上位文字規格工作，不能擅改業務。
+
+已核定且不得自行推翻：
+1. LINE 官方帳號 @064lhzfu。按鈕、固定規則、已核定罐頭，不接付費 AI API、不買客服外掛。ChatGPT Pro／Claude Max 不是 LINE bot 的免費 API。
+2. 必填姓名、電話、應徵職務、應徵縣市，來源選填。社宅顧問、儲備主管、行政職全部直接預約。
+3. 含今天 14 個台灣曆日為實作口徑，提前一小時截止；14:00 場 13:00 起不能新約。開始前可取消；改期新場成功才釋放舊場。
+4. 系統內依面試地＋具體時點＋分組計額。社宅顧問與儲備主管合計 5 人；行政獨立 5 人。台中週三14:00合計最多10個系統預約。不是不限人數，也不是一般兩職缺各5人。
+5. 系統外人工另約不扣系統容量，現場合計超過5人可接受；系統內代約仍按正常容量。沒有人工超額放行、舊約保留名額或候補功能。
+6. 每個LINE身分最多一筆尚未開始的有效預約；過去預約保留歷史但不妨礙再次預約。
+7. 行政週三14:00，台中文心路，主管TOBY。南投另選台中或彰化面試，占該地一般組名額，應徵地仍是南投。
+8. 所有授權同仁看全區並可操作全部首版功能；每人個別登入，無主管／同仁分級。
+9. 新後台「人工接手」→ 回原LINE聊天 → 處理完按「恢復自動」。每人狀態持久保存，不因下一則訊息或逾時自動解除。不要建新收件匣，不假設原LINE人工發話都可同步。
+10. 舊資料不用搬。新預約保留一年。沒有報到、未到、到場率、自動面試提醒。
+11. 原LINE歡迎訊息未核准不得修改；禁止點開未讀訊息。測試使用獨立測試帳號與假資料，不用真實求職者試流程。
+12. 以零新增平台月費為目標而非永久免費保證。不能購買、升級、充值或自動補發付費Push。
+
+工作方式：先檢查現有repo、框架與測試。優先沿用，保持簡單，不任意重構。先建立具持久資料、原子占額、冪等與安全授權的測試服務，再做LINE實機驗證。所有秘密由本人直接在登入或雲端secret介面輸入，不要求貼密碼、验證碼、token到對話。
+
+第一輪請輸出：已讀檔案與讀取不足處、10條內的需求摘要、已完成與尚未實作的界線、架構選型及免費方案限制、分階段檔案／測試產出、真正缺少的帳號或資料。不要把已核定事項重新列為待確認。
+
+我確認執行後，請真正修改檔案、跑測試、交付可重現步驟。若你沒有執行工具或沒有登入權限，清楚說明並完成不受阻部分，不能說「已部署」或「測試通過」而沒有證據。正式OA Webhook、DNS、付費服務及真實個資操作須另經我核准。
+</code></pre>
+<h2>三、分階段執行指令</h2>
+<h3>A. 技術設計與本機準備</h3>
+<pre><code class="language-text">執行階段A：依核定資料檢查專案，提出最小可行架構 ADR，建立本機環境、套件版本鎖定、環境變數範本與假資料。將01規則轉成可測的domain函式與設定schema。列出資料表、索引、狀態機與API錯誤碼，尤其最後一名、同人兩場、人工暫停與日期邊界。先完成本機可測工作，不動正式LINE、不部署付費服務。產出README與下一階段明確待辦。
+</code></pre>
+<h3>B. 核心資料與預約交易</h3>
+<pre><code class="language-text">執行階段B：建立migrations及持久預約服務。用實際資料庫整合測試，不只mock函式。必測general有4人時2人並發只1人成功、admin獨立5人、同人兩場並發只留1筆、事件重送、截止邊界、改期失敗原約不變、取消只扣1次、過去約不阻擋新的未來約。若用D1，依當前官方API實作資料庫內約束與交易；不要在batch外SELECT後無條件INSERT。回報執行命令、測試數、失敗與未測項目。
+</code></pre>
+<h3>C. 管理網頁與共同狀態</h3>
+<pre><code class="language-text">執行階段C：建立登入白名單的全區後台。所有授權同仁同權限且獨立身份。实現場次人數→名單→明細、篩選、系統內代約、改期取消、排程/容量草稿與影響預覽、罐頭發布、停辦名單、人工接手/恢復自動、真正XLSX匯出。兩個獨立瀏覽器登入必須讀同一份資料及人工狀態，不使用localStorage充當資料庫。沒有新聊天輸入框、報到/未到或提醒。測試未授權拒絕、重載一致、匯出總數、電話文字與公式注入、設定不改舊預約快照。提供桌面及手機截圖。
+</code></pre>
+<h3>D. 專用測試 LINE</h3>
+<pre><code class="language-text">執行階段D，但先列出需我自行完成的安全登入步驟：使用專用測試LINE、獨立資料庫與secret。完成raw-body簽章驗證、Webhook去重及恢復、Postback狀態、Reply發送結果、未知訊息人工接手。以手機實測完整流程及原LINE人工聊天共存，不重複歡迎、不點未讀、不動正式帳號。Reply失敗不得擅用Push。檢查Quick Reply數量/文字長度與桌面替代入口。輸出手機實測紀錄及未通過項目，未測不得宣稱正式可用。
+</code></pre>
+<h3>E. 正式上線審查（不是自動部署授權）</h3>
+<pre><code class="language-text">執行階段E的審查準備，先不要切正式Webhook：核對04所有測試證據、備份還原、個資一年清理dry-run、費用/CPU/額度、登入與撤權、既有歡迎訊息、停辦人工通知、服務故障回退。給我一份Go/No-Go表：通過、未通過、未測、負責人、證據。所有關鍵項通過且我明確批准後，才可按逐步切換手冊更改正式設定。任何新費用另行批准。
+</code></pre>
+<h2>四、每次接續對話的短指令</h2>
+<pre><code class="language-text">請先讀本專案PROGRESS.md、01需求、02架構與最近測試紀錄，繼續上次未完成項目。不要重設需求或覆蓋同事改動。先說明現況，再實作與驗證。更新PROGRESS.md：日期、改動檔案、已跑測試/結果、未測項、阻礙、下一步。發現規格衝突先記差異，不能悄悄改5人容量或人工回原LINE規則。
+</code></pre>
+<h2>五、獨立審查指令</h2>
+<pre><code class="language-text">請以review模式檢查此專案，不先重寫。依04驗收案例查找bugs、安全/個資風險、並發超賣、同人重複、人工接手插話、改期丟失原約、日期時區邊界、原LINE整合限制、假成功與免費費用假設。先按嚴重度列問題，附檔案/行號、重現方式、影響及修正建議。區分已實測、僅讀碼與未測。若沒有問題也要說剩餘驗證缺口，不能把原型截圖當正式LINE證據。
+</code></pre>
+<h2>六、可交給同事，不要交給 AI 的秘密</h2>
+<p>可提供：本交接包、已核定的新文案、同仁登入信箱名單、公司可用子網域、個資聯絡窗口、預定切換日期。登入信箱也只在實作需要時安全提供，不必公開分享。</p>
+<p>不要提供：LINE／Google／雲端密碼、一次性驗證碼、Channel access token、Channel secret、API key、cookie、真實求職者聊天／履歷。AI 需要設定時，由帳號持有人在正確介面自行輸入；文檔只寫秘密欄位名稱。</p>
+<p>包內已用虛構資料示範。不得讓 AI 為了理解流程再次瀏覽未讀訊息。没有工具權限不是讓它假裝做完的理由。</p>
+</article></details><details id="doc-3" ><summary>04-acceptance.md · 驗收與交接</summary><article><h1>驗收案例與上線交接</h1>
+<p>H1｜2026-09-07。以下是正式版應完成的測試，不代表本交接包已通過雲端或 LINE 實機驗收。本次原型實際測試結果另見 08。</p>
+<h2>1. 證據標準</h2>
+<p>每案填：實際結果、通過／失敗／未測、執行者、時間、程式版本、環境、命令或操作步驟、去識別化證據。單元測試、資料庫整合、瀏覽器及真實 LINE 手機分開標記。重要失敗不能用「原型可點」抵銷。</p>
+<p>所有測試使用假資料。固定時鐘測試用 Asia/Taipei；正式環境改真實伺服器時鐘。不得在正式帳號開未讀或用求職者試送訊息。</p>
+<h2>2. 功能及交易案例</h2>
+<div class="scrolltable"><table>
+<thead>
+<tr>
+<th>ID</th>
+<th>前提與操作</th>
+<th>預期結果</th>
+<th>正式驗收層級</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>B01</td>
+<td>社宅顧問填四項資料，來源略過</td>
+<td>可直接選場，不先審、不問年齡性別</td>
+<td>LINE 手機</td>
+</tr>
+<tr>
+<td>B02</td>
+<td>儲備主管選台中</td>
+<td>使用現行台中排程，與社宅共 general 容量</td>
+<td>domain＋LINE</td>
+</tr>
+<tr>
+<td>B03</td>
+<td>行政選場</td>
+<td>僅台中三14:00；確認地址文心路、TOBY</td>
+<td>domain＋LINE</td>
+</tr>
+<tr>
+<td>B04</td>
+<td>南投選彰化／台中</td>
+<td>應徵地保留南投，面試地另存；不新增南投名額池</td>
+<td>DB＋LINE</td>
+</tr>
+<tr>
+<td>B05</td>
+<td>舊九欄只缺電話</td>
+<td>補問電話，不要求全部重填，不留九欄原文</td>
+<td>parser＋LINE</td>
+</tr>
+<tr>
+<td>B06</td>
+<td>姓名／電話為空或是原文示範</td>
+<td>不把範例當本人完成；要求確認或修正</td>
+<td>parser＋LINE</td>
+</tr>
+<tr>
+<td>B07</td>
+<td>貼文職缺／城市有兩個可能</td>
+<td>不猜；重新點選，保留已確認欄位</td>
+<td>parser＋LINE</td>
+</tr>
+<tr>
+<td>B08</td>
+<td>一般組已有4人，兩個不同人同時確認</td>
+<td>僅1人成功，最後總數5；另1人重選</td>
+<td>真實 DB 並發</td>
+</tr>
+<tr>
+<td>B09</td>
+<td>一般組已有5人，行政同時段未滿</td>
+<td>一般第6人拒絕；行政仍可收至5</td>
+<td>真實 DB</td>
+</tr>
+<tr>
+<td>B10</td>
+<td>社宅3、儲備2在同場</td>
+<td>general已滿，不再各給兩種職缺5名</td>
+<td>真實 DB</td>
+</tr>
+<tr>
+<td>B11</td>
+<td>南投＋台中應徵者選同一台中一般場</td>
+<td>共用同一5名，不因應徵地不同多開</td>
+<td>真實 DB</td>
+</tr>
+<tr>
+<td>B12</td>
+<td>人工在系統外另約3人，系統已有5人</td>
+<td>外部另約不扣名額，但系統第6人仍拒絕</td>
+<td>業務＋DB</td>
+</tr>
+<tr>
+<td>B13</td>
+<td>同仁透過新後台在滿場代約</td>
+<td>拒絕，沒有人工超額按鈕</td>
+<td>admin＋DB</td>
+</tr>
+<tr>
+<td>B14</td>
+<td>同一LINE帳號同時確認不同兩場</td>
+<td>僅一筆未來有效預約，另一請修改原約</td>
+<td>真實 DB 並發</td>
+</tr>
+<tr>
+<td>B15</td>
+<td>相同確認事件重送5次／連按</td>
+<td>僅1筆預約及1次有效占額，返回相同結果</td>
+<td>Webhook＋DB</td>
+</tr>
+<tr>
+<td>B16</td>
+<td>舊預約已過開始時間，再預約未來場</td>
+<td>可成功；舊紀錄不變成未到</td>
+<td>真實 DB</td>
+</tr>
+<tr>
+<td>B17</td>
+<td>固定9/7上午，生成14日</td>
+<td>9/7～9/20；9/21不開；週末無常規場</td>
+<td>domain</td>
+</tr>
+<tr>
+<td>B18</td>
+<td>14:00場分別12:59:59／13:00:00確認</td>
+<td>前者可、後者截止；不依手機時鐘</td>
+<td>domain＋DB</td>
+</tr>
+<tr>
+<td>B19</td>
+<td>點選時未截止，確認時已截止</td>
+<td>拒絕，重新列有效場，不假成功</td>
+<td>LINE＋DB</td>
+</tr>
+<tr>
+<td>B20</td>
+<td>改期新場額滿／關閉／寫入失敗</td>
+<td>原約仍有效，原名額不減、資料不消失</td>
+<td>真實 DB 故障注入</td>
+</tr>
+<tr>
+<td>B21</td>
+<td>改期成功</td>
+<td>原場減1，新場加1，同預約留改期歷程</td>
+<td>真實 DB</td>
+</tr>
+<tr>
+<td>B22</td>
+<td>取消先點保留，再取消確認</td>
+<td>保留不異動；確認後取消並釋額</td>
+<td>LINE＋DB</td>
+</tr>
+<tr>
+<td>B23</td>
+<td>取消按兩次</td>
+<td>只釋放一次，不產負數</td>
+<td>真實 DB</td>
+</tr>
+<tr>
+<td>B24</td>
+<td>14:00場13:59取消／14:00取消</td>
+<td>開始前可，開始後不可自助取消</td>
+<td>domain＋DB</td>
+</tr>
+<tr>
+<td>B25</td>
+<td>使用舊卡片／他人的bookingId</td>
+<td>檢查本人及revision；不得查改他人</td>
+<td>安全＋LINE</td>
+</tr>
+</tbody></table></div>
+<h2>3. 人工接手與訊息</h2>
+<div class="scrolltable"><table>
+<thead>
+<tr>
+<th>ID</th>
+<th>操作</th>
+<th>預期結果</th>
+<th>層級</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>H01</td>
+<td>A按要求人工，B繼續預約</td>
+<td>A進待人工且暫停，B不受影響</td>
+<td>LINE＋DB</td>
+</tr>
+<tr>
+<td>H02</td>
+<td>同仁按人工接手，重載／另機登入</td>
+<td>mode仍human、可見操作者時間</td>
+<td>多瀏覽器＋DB</td>
+</tr>
+<tr>
+<td>H03</td>
+<td>A在人工接手期間發文字、點舊確認</td>
+<td>不自動插話、不偷偷建立預約、不自動恢復</td>
+<td>LINE 實機</td>
+</tr>
+<tr>
+<td>H04</td>
+<td>同仁回原LINE處理後按恢復自動</td>
+<td>只恢復A；保留其既有預約</td>
+<td>LINE＋admin</td>
+</tr>
+<tr>
+<td>H05</td>
+<td>人工模式持續過草稿TTL</td>
+<td>人工模式仍在，不被草稿清理解除</td>
+<td>DB＋排程</td>
+</tr>
+<tr>
+<td>H06</td>
+<td>原LINE歡迎訊息已開</td>
+<td>新增好友不收到重複歡迎或九欄訊息</td>
+<td>LINE 實機</td>
+</tr>
+<tr>
+<td>H07</td>
+<td>問行政薪資／工時／工作內容</td>
+<td>轉人工，不套一般佣金罐頭</td>
+<td>LINE</td>
+</tr>
+<tr>
+<td>H08</td>
+<td>問「只有四點嗎」「不能來怎麼辦」</td>
+<td>不直接預約／取消，給選項或交人工</td>
+<td>LINE</td>
+</tr>
+<tr>
+<td>H09</td>
+<td>錯簽章／變更body</td>
+<td>不寫入、不執行業務，記安全錯誤但不洩密</td>
+<td>Webhook</td>
+</tr>
+<tr>
+<td>H10</td>
+<td>commit後Reply失敗</td>
+<td>預約仍存在，通知待處理；不重建、不轉付費Push</td>
+<td>故障注入</td>
+</tr>
+<tr>
+<td>H11</td>
+<td>DB失敗／請求超時</td>
+<td>不回預約成功，能重試且不重複</td>
+<td>故障注入</td>
+</tr>
+<tr>
+<td>H12</td>
+<td>事件亂序／去重插入後程序中斷</td>
+<td>可恢復，不吞掉未完成工作、不覆蓋新狀態</td>
+<td>整合</td>
+</tr>
+<tr>
+<td>H13</td>
+<td>接手與待發自動回覆競爭</td>
+<td>發送前核最新模式；實測記錄已送訊息無法撤回邊界</td>
+<td>整合＋LINE</td>
+</tr>
+</tbody></table></div>
+<h2>4. 管理、安全與資料</h2>
+<div class="scrolltable"><table>
+<thead>
+<tr>
+<th>ID</th>
+<th>操作</th>
+<th>預期結果</th>
+<th>層級</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>A01</td>
+<td>三位不同授權者登入</td>
+<td>都可看全區、改設定／匯出；各有獨立操作稽核</td>
+<td>實際登入</td>
+</tr>
+<tr>
+<td>A02</td>
+<td>未登入、被撤權、偽email header</td>
+<td>API全拒絕，非僅畫面隱藏</td>
+<td>安全</td>
+</tr>
+<tr>
+<td>A03</td>
+<td>場次總覽點人數到名單，再匯出</td>
+<td>同篩選、同數量；一般／行政分組正確</td>
+<td>admin＋XLSX</td>
+</tr>
+<tr>
+<td>A04</td>
+<td>姓名、電話、編號搜尋；篩選無結果</td>
+<td>搜尋正確，空白清楚；錯誤不裝成0人</td>
+<td>admin</td>
+</tr>
+<tr>
+<td>A05</td>
+<td>名單超過一頁再匯出</td>
+<td>真XLSX含所有符合記錄，非只有目前頁</td>
+<td>XLSX</td>
+</tr>
+<tr>
+<td>A06</td>
+<td>電話開頭0、姓名以=或+開頭</td>
+<td>Excel顯示文字，不變數字、不執行公式</td>
+<td>XLSX 實檔</td>
+</tr>
+<tr>
+<td>A07</td>
+<td>草稿修改工作罐頭但不發布</td>
+<td>候選人仍用舊版；發布後用新版本</td>
+<td>admin＋LINE</td>
+</tr>
+<tr>
+<td>A08</td>
+<td>罐頭刪必要變數或用未知變數</td>
+<td>阻止發布，不送未展開的{{欄位}}</td>
+<td>domain＋admin</td>
+</tr>
+<tr>
+<td>A09</td>
+<td>修改常規時段</td>
+<td>顯示生效日及確切影響，已有預約快照不變</td>
+<td>DB＋admin</td>
+</tr>
+<tr>
+<td>A10</td>
+<td>將已有4人場次容量改3</td>
+<td>4人保留，剩餘0，不收新約、不刪人</td>
+<td>DB＋admin</td>
+</tr>
+<tr>
+<td>A11</td>
+<td>國定假日／颱風臨時停辦</td>
+<td>場次關閉；列受影響名單，同仁原LINE通知</td>
+<td>admin＋營運</td>
+</tr>
+<tr>
+<td>A12</td>
+<td>一年到期，改期/取消/同人新舊兩筆</td>
+<td>依口徑刪到期個資，不刪較新預約；含快照與備註</td>
+<td>清理 dry-run</td>
+</tr>
+<tr>
+<td>A13</td>
+<td>備份還原到測試環境</td>
+<td>預約/名額/人工mode一致，重套到期刪除清單</td>
+<td>真實還原</td>
+</tr>
+<tr>
+<td>A14</td>
+<td>掃描前端、Git、錯誤日誌、XLSX</td>
+<td>無token、密碼、cookie或不必要LINE身份欄位</td>
+<td>安全</td>
+</tr>
+<tr>
+<td>A15</td>
+<td>375px手機與桌面測試</td>
+<td>無重疊／不可見按鈕，表格可橫向捲動</td>
+<td>瀏覽器</td>
+</tr>
+</tbody></table></div>
+<h2>5. 上線所需資料（不重問已核定規則）</h2>
+<div class="scrolltable"><table>
+<thead>
+<tr>
+<th>資料／動作</th>
+<th>誰提供</th>
+<th>是否阻擋本機測試</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>專用測試LINE帳號、設定權限</td>
+<td>公司帳號持有人自行登入</td>
+<td>不阻擋；阻擋真實LINE測試</td>
+</tr>
+<tr>
+<td>公司雲端帳號及帳務限制</td>
+<td>公司持有人</td>
+<td>不阻擋；阻擋雲端部署</td>
+</tr>
+<tr>
+<td>2～3位同仁登入信箱</td>
+<td>公司</td>
+<td>不阻擋；阻擋正式授權</td>
+</tr>
+<tr>
+<td>可用公司子網域與DNS管理窗口</td>
+<td>公司IT或持有人</td>
+<td>不阻擋；正式網址方案需確認</td>
+</tr>
+<tr>
+<td>個資用途告知、聯絡方式、保存/備份責任人</td>
+<td>公司負責窗口</td>
+<td>不阻擋假資料測試；阻擋真實個資上線</td>
+</tr>
+<tr>
+<td>確認當時各地時段及地址仍有效</td>
+<td>執行同仁核對現行設定</td>
+<td>不用重貼整套罐頭，切換前核對即可</td>
+</tr>
+<tr>
+<td>正式切換時間與回退聯絡人</td>
+<td>公司</td>
+<td>阻擋正式切換</td>
+</tr>
+<tr>
+<td>行政FAQ</td>
+<td>招募同仁，可延後</td>
+<td>不阻擋；未核定先人工</td>
+</tr>
+<tr>
+<td>104／1111來源追蹤方式</td>
+<td>招募同仁，可延後</td>
+<td>不阻擋；未知來源可預約</td>
+</tr>
+</tbody></table></div>
+<p>不需要舊履歷、舊名單、舊場次已約人數、人力銀行密碼或LINE密碼。所有秘密由本人在登入／secret介面輸入。</p>
+<h2>6. Go / No-Go 表</h2>
+<div class="scrolltable"><table>
+<thead>
+<tr>
+<th>檢查</th>
+<th>標準</th>
+<th>核定記錄</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>已核定業務一致</td>
+<td>5人分組、1小時、14日、人工流程、全同權限無偏差</td>
+<td>待正式驗收</td>
+</tr>
+<tr>
+<td>原子占額與冪等</td>
+<td>B08、B14、B15、B20等真DB測試通過</td>
+<td>待正式驗收</td>
+</tr>
+<tr>
+<td>身分與登入</td>
+<td>H09、A01、A02、A14通過</td>
+<td>待正式驗收</td>
+</tr>
+<tr>
+<td>人工共存與歡迎訊息</td>
+<td>H01～H06、H13真機通過</td>
+<td>待正式驗收</td>
+</tr>
+<tr>
+<td>資料與匯出</td>
+<td>A03、A05、A06、A12、A13通過</td>
+<td>待正式驗收</td>
+</tr>
+<tr>
+<td>費用與免費限制</td>
+<td>CPU、請求/讀寫、登入、備份及主動訊息查核</td>
+<td>待正式驗收</td>
+</tr>
+<tr>
+<td>公司核准</td>
+<td>已有上線窗口、聯絡人、告知及回退手冊</td>
+<td>待公司核准</td>
+</tr>
+</tbody></table></div>
+<p>任一關鍵項未測或失敗，維持測試版。不可因能開網頁或PPT看起來完整就切正式LINE。</p>
+<h2>7. 切換步驟與回退</h2>
+<ol>
+<li>取得公司核准，記錄原OA設定、正式版本、備份及回退方式。不得點未讀訊息。</li>
+<li>在測試環境重跑核心案例與備份還原，核對正式/測試資料庫與secret不共用。</li>
+<li>由授權者依手冊設定正式Webhook，保留原歡迎訊息；公司自行用測試身份做一筆可追查驗證。</li>
+<li>核對資料庫、後台人數、原LINE回覆與人工接手。正式運作起點寫入切換紀錄，不匯舊資料。</li>
+<li>有問題立即停止新自助寫入、保留已成立預約，依記錄回人工。不得刪資料重建、批量亂發通知或擅自加購。</li>
+<li>初期由同仁檢查待人工、通知失敗、已關場次及服務額度；這是營運工作，不是開啟自動面試提醒。</li>
+</ol>
+<h2>8. 接手完成清單</h2>
+<p>同事最終需交付：可重建原始碼、版本鎖定與migration、環境設定範本、測試報告與截圖、正式/測試架構圖、帳號歸屬表（不含秘密）、費用報告、後台操作手冊、備份還原與個資清理手冊、上線/回退紀錄、未完成及已知風險清單。</p>
+<p>公司應能在沒有原開發者個人帳號的情況下維護服務。AI寫了程式不等於公司已取得部署權限；兩者都需驗收。</p>
+</article></details><details id="doc-4" ><summary>05-config.json · 規則與罐頭</summary><article><pre>{
+  &quot;schemaVersion&quot;: 1,
+  &quot;release&quot;: &quot;H1-2026-09-07&quot;,
+  &quot;status&quot;: &quot;planning_seed_not_deployed&quot;,
+  &quot;authority&quot;: &quot;01-requirements.md&quot;,
+  &quot;account&quot;: { &quot;name&quot;: &quot;星小鴻 (星鴻社會住宅徵才專區)&quot;, &quot;publicId&quot;: &quot;@064lhzfu&quot;, &quot;preserveExistingWelcome&quot;: true },
+  &quot;rules&quot;: {
+    &quot;timezone&quot;: &quot;Asia/Taipei&quot;,
+    &quot;horizonDaysIncludingToday&quot;: 14,
+    &quot;horizonInterpretation&quot;: &quot;implementation_convention_today_through_day13&quot;,
+    &quot;bookingCutoffMinutes&quot;: 60,
+    &quot;bookingCutoffExclusive&quot;: true,
+    &quot;cancelBeforeStartOnly&quot;: true,
+    &quot;oneFutureActiveBookingPerLineUser&quot;: true,
+    &quot;defaultCapacityPerOfficeDatetimePool&quot;: 5,
+    &quot;offSystemManualConsumesCapacity&quot;: false,
+    &quot;inSystemManualConsumesCapacity&quot;: true,
+    &quot;manualOverbookOverride&quot;: false,
+    &quot;reserveLegacyCapacity&quot;: false,
+    &quot;countScopeLabel&quot;: &quot;新系統預約紀錄，不含未登錄的人工預約&quot;,
+    &quot;retentionCalendarYearsAfterInterview&quot;: 1,
+    &quot;retentionRescheduleBasis&quot;: &quot;latest_confirmed_interview_date&quot;,
+    &quot;retentionCancelledBasis&quot;: &quot;scheduled_interview_date&quot;,
+    &quot;automaticReminders&quot;: false,
+    &quot;paidAiApi&quot;: false,
+    &quot;pushFallback&quot;: false,
+    &quot;humanModeAutoTimeout&quot;: false,
+    &quot;humanModeMutationPolicy&quot;: &quot;pause_self_service_implementation_convention&quot;,
+    &quot;allAuthorizedStaffHaveSamePermissions&quot;: true
+  },
+  &quot;requiredFields&quot;: [&quot;name&quot;, &quot;phone&quot;, &quot;jobId&quot;, &quot;applyCity&quot;],
+  &quot;optionalFields&quot;: [&quot;source&quot;],
+  &quot;notCollected&quot;: [&quot;gender&quot;, &quot;age&quot;, &quot;residentialArea&quot;, &quot;previousJob&quot;],
+  &quot;sources&quot;: [&quot;104人力銀行&quot;, &quot;1111人力銀行&quot;, &quot;FB廣告&quot;, &quot;其他&quot;, &quot;未知&quot;],
+  &quot;jobs&quot;: [
+    { &quot;id&quot;: &quot;housing_advisor&quot;, &quot;label&quot;: &quot;社宅顧問&quot;, &quot;pool&quot;: &quot;general&quot;, &quot;directBooking&quot;: true },
+    { &quot;id&quot;: &quot;management_trainee&quot;, &quot;label&quot;: &quot;儲備主管&quot;, &quot;pool&quot;: &quot;general&quot;, &quot;directBooking&quot;: true },
+    { &quot;id&quot;: &quot;admin&quot;, &quot;label&quot;: &quot;行政職&quot;, &quot;pool&quot;: &quot;admin&quot;, &quot;directBooking&quot;: true, &quot;officeId&quot;: &quot;taichung&quot;, &quot;interviewer&quot;: &quot;TOBY&quot;, &quot;unapprovedFaq&quot;: &quot;human&quot; }
+  ],
+  &quot;applicationCities&quot;: [&quot;新竹&quot;, &quot;台中&quot;, &quot;彰化&quot;, &quot;嘉義&quot;, &quot;南投&quot;],
+  &quot;nantou&quot;: { &quot;interviewOfficeOptions&quot;: [&quot;taichung&quot;, &quot;changhua&quot;], &quot;keepApplicationCity&quot;: true, &quot;workOffice&quot;: &quot;草屯&quot;, &quot;usesDestinationGeneralPool&quot;: true },
+  &quot;offices&quot;: [
+    { &quot;id&quot;: &quot;taichung&quot;, &quot;city&quot;: &quot;台中&quot;, &quot;label&quot;: &quot;台中分公司&quot;, &quot;address&quot;: &quot;台中市北屯區文心路四段698號6樓之1&quot;, &quot;arrival&quot;: &quot;來請直接上電梯六樓進辦公室，告知面試會先填寫履歷(請自備原子筆)，再由主管面試，如人數較多將採用團體面試。&quot; },
+    { &quot;id&quot;: &quot;changhua&quot;, &quot;city&quot;: &quot;彰化&quot;, &quot;label&quot;: &quot;彰化分公司&quot;, &quot;address&quot;: &quot;彰化市華山路37號11樓之4&quot;, &quot;landmark&quot;: &quot;國泰銀行樓上&quot;, &quot;arrival&quot;: &quot;來請直接上電梯11樓進辦公室，告知面試會先填寫履歷(請自備原子筆)，再由主管面試，如人數較多將採用團體面試。&quot; },
+    { &quot;id&quot;: &quot;chiayi&quot;, &quot;city&quot;: &quot;嘉義&quot;, &quot;label&quot;: &quot;嘉義分公司&quot;, &quot;address&quot;: &quot;嘉義市西區上海路175號2樓&quot;, &quot;landmark&quot;: &quot;旅遊家左邊樓梯上樓&quot;, &quot;arrival&quot;: &quot;來請直接上走樓梯2樓右轉進辦公室，告知面試會先填寫履歷(請自備原子筆)，再由主管面試，如人數較多將採用團體面試。&quot; },
+    { &quot;id&quot;: &quot;hsinchu&quot;, &quot;city&quot;: &quot;新竹&quot;, &quot;label&quot;: &quot;新竹分公司&quot;, &quot;address&quot;: &quot;新竹縣竹北市光明五街342號2樓&quot;, &quot;arrival&quot;: &quot;來請直接上電梯二樓進辦公室，告知面試會先填寫履歷(請自備原子筆)，再由主管面試，如人數較多將採用團體面試。&quot; }
+  ],
+  &quot;weeklySchedules&quot;: [
+    { &quot;officeId&quot;: &quot;taichung&quot;, &quot;pool&quot;: &quot;general&quot;, &quot;capacity&quot;: 5, &quot;isoWeekdays&quot;: { &quot;1&quot;: [&quot;11:00&quot;, &quot;14:00&quot;], &quot;2&quot;: [&quot;11:00&quot;, &quot;14:00&quot;, &quot;16:00&quot;], &quot;3&quot;: [&quot;10:00&quot;, &quot;14:00&quot;, &quot;16:00&quot;], &quot;4&quot;: [&quot;11:00&quot;, &quot;14:00&quot;, &quot;16:00&quot;], &quot;5&quot;: [&quot;14:00&quot;, &quot;16:00&quot;] } },
+    { &quot;officeId&quot;: &quot;taichung&quot;, &quot;pool&quot;: &quot;admin&quot;, &quot;capacity&quot;: 5, &quot;interviewer&quot;: &quot;TOBY&quot;, &quot;isoWeekdays&quot;: { &quot;3&quot;: [&quot;14:00&quot;] } },
+    { &quot;officeId&quot;: &quot;changhua&quot;, &quot;pool&quot;: &quot;general&quot;, &quot;capacity&quot;: 5, &quot;isoWeekdays&quot;: { &quot;4&quot;: [&quot;14:00&quot;] } },
+    { &quot;officeId&quot;: &quot;chiayi&quot;, &quot;pool&quot;: &quot;general&quot;, &quot;capacity&quot;: 5, &quot;isoWeekdays&quot;: { &quot;3&quot;: [&quot;16:00&quot;], &quot;4&quot;: [&quot;16:00&quot;] } },
+    { &quot;officeId&quot;: &quot;hsinchu&quot;, &quot;pool&quot;: &quot;general&quot;, &quot;capacity&quot;: 5, &quot;isoWeekdays&quot;: { &quot;2&quot;: [&quot;14:00&quot;], &quot;4&quot;: [&quot;14:00&quot;] } }
+  ],
+  &quot;templates&quot;: [
+    { &quot;key&quot;: &quot;salary_general&quot;, &quot;status&quot;: &quot;user_provided&quot;, &quot;scope&quot;: &quot;general&quot;, &quot;text&quot;: &quot;您好，我們有底薪制(儲備培訓)、高獎金論件計酬及兼職，現場會有面試主管向您說明\n0900-1800，周休二日 見紅休&quot; },
+    { &quot;key&quot;: &quot;work_general&quot;, &quot;status&quot;: &quot;user_provided&quot;, &quot;scope&quot;: &quot;general&quot;, &quot;text&quot;: &quot;您好，\n我們是政府合法委託社會住宅包租代管業者，致力於推廣社會住宅政策\n服務過程不收仲介費服務費，都是由政府經費撥款\n\n工作內容\n1.社會住宅推廣解說\n2.協助民眾辦理社會住宅相關補助\n3.評估房屋市場行情\n4.協助客戶處理糾紛\n5.電話拜訪客戶了解客戶案例\n\n現場會有面試主管向您說明&quot; },
+    { &quot;key&quot;: &quot;office_taichung&quot;, &quot;status&quot;: &quot;user_provided&quot;, &quot;scope&quot;: &quot;taichung_general&quot;, &quot;text&quot;: &quot;您好，我們面試和上課，統一在北屯文心路，之後上班可以選就近的辦公室。&quot; },
+    { &quot;key&quot;: &quot;office_nantou&quot;, &quot;status&quot;: &quot;user_provided&quot;, &quot;scope&quot;: &quot;nantou_general&quot;, &quot;text&quot;: &quot;目前面試統一在台中/彰化，之後辦公可以在草屯辦公室&quot; },
+    { &quot;key&quot;: &quot;reschedule_offer&quot;, &quot;status&quot;: &quot;user_provided&quot;, &quot;scope&quot;: &quot;all&quot;, &quot;text&quot;: &quot;您好，要預約下次面試時間嗎?&quot; },
+    { &quot;key&quot;: &quot;nantou_route&quot;, &quot;status&quot;: &quot;user_provided&quot;, &quot;scope&quot;: &quot;nantou_general&quot;, &quot;text&quot;: &quot;您好，請問您是否方便前往台中/或彰化分公司進行面試？\n\n台中：台中市北屯區文心路四段698號6樓之1\n彰化：彰化市華山路37號11樓之4\n\n若您方便前往，我們將進一步提供您具體的面試時間。謝謝您&quot; },
+    { &quot;key&quot;: &quot;weather_notice&quot;, &quot;status&quot;: &quot;user_provided&quot;, &quot;scope&quot;: &quot;all&quot;, &quot;text&quot;: &quot;(如遇到國定假/颱風假會暫停面試，請再主動來訊預約)&quot; },
+    { &quot;key&quot;: &quot;booking_success&quot;, &quot;status&quot;: &quot;draft_for_prelaunch_review&quot;, &quot;scope&quot;: &quot;all&quot;, &quot;requiredVariables&quot;: [&quot;bookingId&quot;, &quot;job&quot;, &quot;date&quot;, &quot;time&quot;, &quot;address&quot;, &quot;arrival&quot;, &quot;interviewerNote&quot;], &quot;text&quot;: &quot;好的，已為您完成面試預約！\n預約編號：{{bookingId}}\n應徵職務：{{job}}\n面試日期：{{date}}\n面試時間：{{time}}\n面試地點：{{address}}\n\n{{arrival}}\n{{interviewerNote}}\n(如遇到國定假/颱風假會暫停面試，請再主動來訊預約)&quot; },
+    { &quot;key&quot;: &quot;choose_slot&quot;, &quot;status&quot;: &quot;draft_for_prelaunch_review&quot;, &quot;scope&quot;: &quot;all&quot;, &quot;text&quot;: &quot;您好，請選擇方便的面試日期與時間。我們會在您最後確認時完成預約。&quot; },
+    { &quot;key&quot;: &quot;full&quot;, &quot;status&quot;: &quot;draft_for_prelaunch_review&quot;, &quot;scope&quot;: &quot;all&quot;, &quot;text&quot;: &quot;這個時段的線上預約名額已滿，請選其他方便的時段，謝謝您！&quot; },
+    { &quot;key&quot;: &quot;cutoff&quot;, &quot;status&quot;: &quot;draft_for_prelaunch_review&quot;, &quot;scope&quot;: &quot;all&quot;, &quot;text&quot;: &quot;這個時段已截止預約，請重新選擇其他日期或時間。&quot; },
+    { &quot;key&quot;: &quot;human&quot;, &quot;status&quot;: &quot;draft_for_prelaunch_review&quot;, &quot;scope&quot;: &quot;all&quot;, &quot;text&quot;: &quot;好的，這個問題由招募同仁協助您，請稍候。&quot; },
+    { &quot;key&quot;: &quot;missing_field&quot;, &quot;status&quot;: &quot;draft_for_prelaunch_review&quot;, &quot;scope&quot;: &quot;all&quot;, &quot;text&quot;: &quot;您好，還需要您的{{field}}，麻煩補充一下，方便我們幫您安排面試。&quot; }
+  ],
+  &quot;templateNotes&quot;: [
+    &quot;user_provided 代表使用者提供，非外部事實查證或法律保證。&quot;,
+    &quot;新功能文案為上線前校稿草稿；不可把草稿標成公司已核定原文。&quot;,
+    &quot;日期與時間由場次即時產生；不得把舊台中週期文字作為可預約資料來源。&quot;,
+    &quot;行政薪資、工作內容及工時未提供，交人工。&quot;,
+    &quot;未含個資用途告知聯絡窗口；須公司上線前提供。&quot;
+  ]
+}
+</pre></article></details><details id="doc-5" ><summary>08-original-verification.md · 本次驗證界線</summary><article><h1>本次交付與驗證界線</h1>
+<p>H1｜2026-09-07。目的：讓同事及其 AI 在不遺失核定規則的情況下接手正式建置。</p>
+<h2>已交付</h2>
+<ul>
+<li>已核定需求整合：由工作區 v3 規格整理，保留一般／行政各5人、1小時、14日、人工原LINE、全同仁同權限等決策。</li>
+<li>詳細技術架構：資料表、索引、交易不變條件、狀態機、API、設定版本、匯出、個資及回退。</li>
+<li>AI總指令、A～E分階段執行指令、接續指令、獨立審查指令，以及一次上傳整合版。</li>
+<li>更新後本機可操作HTML原型，假資料、可重設；包含預約、改期取消、額滿截止、查詢、人工模式、排程及FAQ草稿發布。</li>
+<li>24頁PPTX簡報及同內容網頁瀏覽版。文字、表格及架構形狀可在PPTX編輯；操作畫面為本機截圖。</li>
+<li>53項正式驗收案例與上線交接清單，區分待驗收和已測原型。</li>
+</ul>
+<h2>本次實際驗證</h2>
+<div class="scrolltable"><table>
+<thead>
+<tr>
+<th>檢查</th>
+<th>結果與界線</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>規則JSON解析／原型內嵌JS語法</td>
+<td>通過；原型不需外部套件或連網</td>
+</tr>
+<tr>
+<td>獨立Microsoft Edge本機操作</td>
+<td>37項通過，無未處理JS錯誤；全部使用假資料</td>
+</tr>
+<tr>
+<td>5人規則</td>
+<td>一般第五人成功、第六人拒絕、行政獨立可收至第五人；這是單瀏覽器順序測試，不是正式並發驗證</td>
+</tr>
+<tr>
+<td>日期與截止</td>
+<td>提前一小時整點拒絕，第15曆日拒絕；過去約不阻擋未來再約</td>
+</tr>
+<tr>
+<td>改期取消</td>
+<td>成功只留一筆及事件，取消確認後釋額；新場額滿時原約保留</td>
+</tr>
+<tr>
+<td>人工接手</td>
+<td>待人工、接手、重載持續、逐人隔離、明確恢復已測；儲存僅localStorage</td>
+</tr>
+<tr>
+<td>設定與FAQ</td>
+<td>草稿不影響發布、發布後生效；移除時段不刪舊約；關閉場次拒絕新約</td>
+</tr>
+<tr>
+<td>手機版面</td>
+<td>375px下8個求職者主要步驟無橫向溢出；桌面後台截圖已檢視</td>
+</tr>
+<tr>
+<td>PPTX</td>
+<td>24頁，套件結構及版面檢查無發現；4張原生表格、字型政策通過，重新匯入並逐頁轉PNG檢視</td>
+</tr>
+<tr>
+<td>PowerPoint原生程式</td>
+<td>未實際啟動PowerPoint驗證；本次使用簡報工具轉圖與結構檢查</td>
+</tr>
+</tbody></table></div>
+<p>37項本機測試逐項結果附 <code>validation/prototype-tests.json</code>。簡報交付檔的頁數、驗證摘要與雜湊見 <code>validation/slides-validation.json</code>；整包各檔雜湊見 <code>MANIFEST-SHA256.json</code>。</p>
+<h2>原型與正式需求的差異</h2>
+<p>06 只用於審閱流程，不能部署成正式服務。原型在單一瀏覽器內保存假資料，沒有共享後端、伺服器驗簽、交易、真正登入或秘密管理。兩台電腦不會共用人數。模擬身分選單不是認證功能，示範時鐘不是正式時鐘。</p>
+<p>正式版仍需補齊：場次全部／空場查詢、完整分頁、精確權限與同仁代約、排程生效日與版本衝突、臨時加場、完整模板套變數與快照、真正XLSX、簽章及Webhook重試、共用持久人工狀態、Reply發送、備份還原、個資一年清理及原LINE共存。</p>
+<p>原型的舊格式解析只提供最小示範，不代表可理解所有自由文字；例如範例姓名電話判斷、模糊日期、跨步驟FAQ回復及完整電話格式仍須依正式驗收補齊。行政未核定FAQ已交人工。</p>
+<p>查詢目前只示範列出資料及必要欄位。原型罐頭管理已連動一般FAQ，預約成功版型及全部變數套入仍是正式版工作。時段發布立即影響本機新選項，正式版必須增加生效日期。原型的人數可操作但不可視為防並發保證。</p>
+<h2>尚未完成，也沒有聲稱完成</h2>
+<p>正式LINE串接、雲端資料庫、多人並發交易、管理登入、真實XLSX匯出、假日自動日曆、LINE手機實機共存、備份還原、個資清理與正式上線。假日停辦目前由同仁管理，不承諾自動辨識國定假日或颱風假。</p>
+<p>本次沒有開LINE聊天室、沒有點未讀、沒有發訊息、沒有使用真實求職者測試、沒有部署或購買服務。包內沒有密碼、驗證碼、token、cookie、真實求職者資料或舊聊天。</p>
+<h2>對接手同事的提醒</h2>
+<p>以01/02正式文字為準，不能照著原型的缺少功能縮減需求。先用03總指令讓AI回讀規則，再依04案例逐步建置測試服務。只在公司核准後才切正式Webhook。舊版不限額／新收件匣等提案未放入本包，原工作區歷史檔案未刪改。</p>
+</article></details><details id="doc-6" ><summary>10-slide-notes.md · 簡報文字版</summary><article><h1>簡報逐頁文字與講者備註</h1>
+<p>供不能读取PPTX圖片的AI檢索。以01/02文字規格為準。</p>
+<h2>1. 星鴻 LINE 面試預約</h2>
+<p>交接建置簡報 H1　供同事與其 AI 接手規劃、實作及驗收</p>
+<ul>
+<li>LINE按鈕与固定規則；不接付費AI；新後台預約管理，人工回原LINE。</li>
+</ul>
+<p>講者備註：本簡報以更新後原型的真實本機截圖呈現，並非正式LINE截圖。舊版不限額、新收件匣、主管權限分級、到場維護及2小時截止提案不再適用。</p>
+<p>依據：本交接包01已核定規格、02技術設計及2026-09-07本機原型。正式LINE、雲端持久資料庫、登入、XLSX與備份還原未完成。</p>
+<h2>2. 已核定的首版範圍</h2>
+<p>先把已經決定的事交接清楚，不讓下一位 AI 重新猜規則。</p>
+<ul>
+<li>項目 / 首版規則</li>
+<li>必要資料／審核 / 姓名、電話、職務、應徵地；來源選填。三種職缺都直接預約。</li>
+<li>開放／截止 / 含今天14個台灣曆日；每場開始前1小時截止。</li>
+<li>系統內名額 / 一般兩職缺共5人；行政獨立5人。系統內人工代約同樣計額。</li>
+<li>系統外人工 / 未登錄的人工另約不扣名額，現場合計超額可接受。</li>
+<li>同人／改期取消 / 一個LINE身分一筆未來有效約。改期成功才釋舊額；開始前可取消。</li>
+<li>權限／人工 / 授權同仁全區同權限。新後台接手、原LINE聊天、明確恢復自動。</li>
+<li>保留／排除 / 新預約保留1年。不搬舊資料、不做報到未到、不做自動提醒。</li>
+</ul>
+<p>講者備註：14日含今天至第13天、一年起算與人工暫停期間自助異動的保守口徑已在01/02明列。現場超額例外不能變成系統不限額。</p>
+<p>依據：本交接包01已核定規格、02技術設計及2026-09-07本機原型。正式LINE、雲端持久資料庫、登入、XLSX與備份還原未完成。</p>
+<h2>3. 正式架構與責任分工</h2>
+<p>同一個預約服務，同一份持久資料庫。</p>
+<ul>
+<li>LINE 聊天室：訊息／按鈕事件</li>
+<li>Webhook 接收：驗簽、去重、人工模式</li>
+<li>預約服務：截止、容量、一人一約</li>
+<li>持久資料庫：預約、場次、異動及設定</li>
+<li>新管理後台：同仁登入後查詢與管理</li>
+<li>原 LINE 後台：主管人工聊天</li>
+</ul>
+<p>講者備註：示意為邏輯架構，尚未部署。登入方案、備份及CPU配額需實測。資料庫是預約與容量唯一主檔。LINE簽章與事件特性以官方文件為準。</p>
+<p>依據：本交接包01已核定規格、02技術設計及2026-09-07本機原型。正式LINE、雲端持久資料庫、登入、XLSX與備份還原未完成。
+官方參考：
+<a href="https://developers.line.biz/en/docs/messaging-api/receiving-messages/">https://developers.line.biz/en/docs/messaging-api/receiving-messages/</a></p>
+<h2>4. 從既有 LINE 入口開始</h2>
+<p>104／1111 沿用既有官方帳號連結；舊好友也可以直接操作。</p>
+<ul>
+<li>固定預約入口：點「預約面試」或傳送相同文字。原 LINE 歡迎訊息保持現狀。</li>
+<li>三種職缺直接預約：社宅顧問、儲備主管、行政職，填完必要資料即可選場。</li>
+<li>親切且不亂承諾：首版用按鈕與已核定文案。未知問題交招募同仁。</li>
+</ul>
+<p>講者備註：左圖為新預約入口示意，不是已修改的正式歡迎訊息。人力銀行與加入LINE的裝置過場依實際平台，不在本機原型模擬登入。</p>
+<p>依據：本交接包01已核定規格、02技術設計及2026-09-07本機原型。正式LINE、雲端持久資料庫、登入、XLSX與備份還原未完成。</p>
+<h2>5. 應徵地與基本資料</h2>
+<p>應徵縣市和實際面試分公司分開保存。</p>
+<ul>
+<li>應徵地自己點選：不由居住地推定，也不再要求性別、年齡或前職。</li>
+<li>只輸入必要資料：姓名與電話由求職者輸入，職缺及縣市沿用前面選擇。</li>
+<li>舊格式仍可辨識：只抽取必要欄位，再請本人核對。含糊或缺項就補問。</li>
+</ul>
+<p>講者備註：原型輸入框是聊天輸入示範，不代表原生聊天泡泡可嵌HTML表單。正式首版可使用聊天室逐項追問，不強制LIFF。個資告知與聯絡窗口上線前由公司提供。</p>
+<p>依據：本交接包01已核定規格、02技術設計及2026-09-07本機原型。正式LINE、雲端持久資料庫、登入、XLSX與備份還原未完成。</p>
+<h2>6. 電話與可預約日期</h2>
+<p>四項必填、來源選填；日期由已發布的場次產生。</p>
+<ul>
+<li>電話只做格式確認：首版没有簡訊驗證，不能宣稱已驗證電話持有人。</li>
+<li>含今天開放14日：使用 Asia/Taipei。示範9/7開放至9/20，不多開第15日。</li>
+<li>先過濾不適用場次：日期須有未截止、未關閉且尚有名額的可用時間。</li>
+</ul>
+<p>講者備註：畫面固定時鐘2026-09-07 09:00，電話全部假資料。正式LINE日期按鈕須分頁並遵守Quick Reply限制。</p>
+<p>依據：本交接包01已核定規格、02技術設計及2026-09-07本機原型。正式LINE、雲端持久資料庫、登入、XLSX與備份還原未完成。</p>
+<h2>7. 選時段與最後核對</h2>
+<p>看到按鈕不代表已經保留名額。</p>
+<ul>
+<li>具體年月日與時間：例如2026/09/10（四）16:00，不只寫「禮拜四」。</li>
+<li>提前一小時截止：14:00場12:59可約，13:00起關閉。確認當下後端再檢查。</li>
+<li>最終確認才成立：核對職務、姓名電話、應徵地、面試地與日期時間。</li>
+</ul>
+<p>講者備註：台中一般排程使用使用者確認的現行版。伺服器仍需驗證過期按鈕、職缺分組、身分、容量與截止，不能信任前端提供的名額。</p>
+<p>依據：本交接包01已核定規格、02技術設計及2026-09-07本機原型。正式LINE、雲端持久資料庫、登入、XLSX與備份還原未完成。</p>
+<h2>8. 完成預約與查詢</h2>
+<p>成功確認後有預約編號、時間、地址及到場提醒。</p>
+<ul>
+<li>同一人一筆未來有效約：再點預約會導向原約。換時間、地區或職務使用修改。</li>
+<li>到場資訊按分公司：帶入地址、樓層、自備原子筆與團體面試說明。</li>
+<li>訊息失敗另外記錄：已寫入但Reply失敗仍是已成立，不能再建一笔或偷偷Push。</li>
+</ul>
+<p>講者備註：畫面顯示DEMO編號，本機不是正式資料庫。真正跨裝置查詢必須從驗證身分及共享資料庫讀取。新成功文案為上線前校稿草稿。</p>
+<p>依據：本交接包01已核定規格、02技術設計及2026-09-07本機原型。正式LINE、雲端持久資料庫、登入、XLSX與備份還原未完成。</p>
+<h2>9. 改期與取消保留歷程</h2>
+<p>新場確認成功才釋放原名額；取消前再確認。</p>
+<ul>
+<li>改期失敗原約保留：新場已滿、截止或寫入失敗，原場次與名額都不能先移除。</li>
+<li>面試開始前可取消：例如14:00場13:59可取消，14:00起不可自助取消。</li>
+<li>不維護報到與未到：超過面試時間只成為歷史預約，不推定面試結果。</li>
+</ul>
+<p>講者備註：本機已測取消確認、改期成功、額滿改期失败保留原約。正式版必須另用真實資料庫交易及故障注入驗證。</p>
+<p>依據：本交接包01已核定規格、02技術設計及2026-09-07本機原型。正式LINE、雲端持久資料庫、登入、XLSX與備份還原未完成。</p>
+<h2>10. 南投與行政職的特殊安排</h2>
+<p>南投使用目的地名額；行政場次獨立計數。</p>
+<ul>
+<li>南投仍保留應徵地：選到台中或彰化面試，與該地一般職缺共用5人，之後可在草屯辦公。</li>
+<li>行政週三14:00：統一台中文心路，主管TOBY，填完資料直接預約。</li>
+<li>兩組各自5人：台中週三14:00，一般合計5人、行政獨立5人，系統最多10人。</li>
+</ul>
+<p>講者備註：行政工作地點/薪資/工時未提供者轉人工，不自行套一般職缺佣金制。右圖是一般已滿仍能成功預約行政的本機測試結果。</p>
+<p>依據：本交接包01已核定規格、02技術設計及2026-09-07本機原型。正式LINE、雲端持久資料庫、登入、XLSX與備份還原未完成。</p>
+<h2>11. 額滿處理與固定 FAQ</h2>
+<p>系統不接第六人，沒有候補或人工超額按鈕。</p>
+<ul>
+<li>一般兩職缺共用容量：社宅3人＋儲備2人即滿。人工在新後台代約也算在內。</li>
+<li>現場合計可能超額：系統外人工另約不扣新系統名額，此例外不等於系統不限額。</li>
+<li>常見問題用核定內容：薪資、工時、工作與辦公室安排可維護，行政未核定問題交人工。</li>
+</ul>
+<p>講者備註：左圖展示被禁用的額滿時段。右圖沿用使用者提供的薪資文案，不是外部事實查核或法律保證。首次出版的新功能文案需公司校稿。</p>
+<p>依據：本交接包01已核定規格、02技術設計及2026-09-07本機原型。正式LINE、雲端持久資料庫、登入、XLSX與備份還原未完成。</p>
+<h2>12. 管理者先看場次人數</h2>
+<p>全體授權同仁都看全區，統計使用面試日期。</p>
+<ul>
+<li>各組名額一眼看清：一般與行政分列，人數、容量與剩餘數可回查。</li>
+<li>數字範圍明確：不含未登錄人工約。
+行政是總預約的一部分，不能重複相加。</li>
+<li>點人數進名單：帶入同場日期、時間與分組查詢。</li>
+</ul>
+<p>講者備註：示範種子12筆有效預約、其中行政3筆，共5個場次分組。全部是假資料。原型總覽只列已有預約的組，正式版需支援全部開放及空場查詢。</p>
+<p>依據：本交接包01已核定規格、02技術設計及2026-09-07本機原型。正式LINE、雲端持久資料庫、登入、XLSX與備份還原未完成。</p>
+<h2>13. 預約查詢與匯出</h2>
+<p>名單、場次總數與匯出共用同一組篩選條件。</p>
+<ul>
+<li>找場次也能找人：依姓名、電話、編號、職缺、地點及日期查詢。</li>
+<li>下載真正 XLSX：正式版需完整符合筆數，電話按文字保存，不輸出LINE身分憑證。</li>
+<li>原型誠實標示未做：目前匯出按鈕停用，
+不以CSV改名代替。</li>
+</ul>
+<p>講者備註：截圖為台中9/9 14:00一般組4筆。正式匯出不只取當前頁、不得含token、登入資料或多餘九欄個資，須測試公式注入。</p>
+<p>依據：本交接包01已核定規格、02技術設計及2026-09-07本機原型。正式LINE、雲端持久資料庫、登入、XLSX與備份還原未完成。</p>
+<h2>14. 預約明細與異動記錄</h2>
+<p>記錄預約本身，不承諾原 LINE 全部對話同步。</p>
+<ul>
+<li>保存確認快照：姓名電話、應徵地、日期地址與行政主管。</li>
+<li>改期取消有歷程：保留操作者和時間，不覆蓋原變動紀錄。</li>
+<li>人工代約同規則：正式版同樣檢查容量、一人一約；本機僅示範本人自助異動。</li>
+</ul>
+<p>講者備註：保留1年也適用包含個資的快照、事件與備註，不為了歷程而永久保留個資。後台沒有報到／未到按鈕。</p>
+<p>依據：本交接包01已核定規格、02技術設計及2026-09-07本機原型。正式LINE、雲端持久資料庫、登入、XLSX與備份還原未完成。</p>
+<h2>15. 時段與容量集中管理</h2>
+<p>每週規則和單場停辦分開，已有預約不默默搬動。</p>
+<ul>
+<li>台中採現行時段：一般與行政分組維護，
+其他分公司各有排程。</li>
+<li>草稿先預覽：檢查移除或降容量的影響；已有預約全部保留。</li>
+<li>正式版還需生效日：原型發布只改本機新選項，正式需版本衝突與生效日期。</li>
+</ul>
+<p>講者備註：台中一11/14；二11/14/16；三10/14/16；四11/14/16；五14/16。行政三14。降低容量不刪已約人，停止新增並提示超額。</p>
+<p>依據：本交接包01已核定規格、02技術設計及2026-09-07本機原型。正式LINE、雲端持久資料庫、登入、XLSX與備份還原未完成。</p>
+<h2>16. 罐頭訊息集中管理</h2>
+<p>草稿、預覽、發布與版本分清楚。</p>
+<ul>
+<li>候選人用發布版本：本機FAQ已測草稿不影響、發布後才變更。</li>
+<li>職缺適用範圍：一般薪資不能當行政薪資。未知內容轉人工。</li>
+<li>不承諾雙向同步：原LINE既有預設訊息仍在原後台管理。</li>
+</ul>
+<p>講者備註：新功能文案是上線前待校稿，不和使用者原文混淆。日期、時間、地址及TOBY要從預約快照套入；必要或未知變數驗證不可略過。</p>
+<p>依據：本交接包01已核定規格、02技術設計及2026-09-07本機原型。正式LINE、雲端持久資料庫、登入、XLSX與備份還原未完成。</p>
+<h2>17. 人工接手仍回原 LINE 聊天</h2>
+<p>已核定的操作：人工接手、回原 LINE、恢復自動。</p>
+<ul>
+<li>逐人暫停：A由人工處理不影響B。
+接手狀態須存伺服器。</li>
+<li>明確恢復：重載、換同仁或新訊息，都不會自動解除。</li>
+<li>不建新收件匣：只有狀態與待處理名單，没有新的聊天輸入框。</li>
+</ul>
+<p>講者備註：本機已測按接手後重載仍暫停、其他身分不受影響及明確恢復。正式版需測已排隊回覆與接手競爭，發送前檢查最新模式。原LINE人工外發不能假定Webhook全量提供。</p>
+<p>依據：本交接包01已核定規格、02技術設計及2026-09-07本機原型。正式LINE、雲端持久資料庫、登入、XLSX與備份還原未完成。</p>
+<h2>18. 假日、颱風與臨時停辦</h2>
+<p>所有授權同仁都可關閉場次，再回原 LINE 人工通知。</p>
+<ul>
+<li>關閉後不再新約：既有預約與聯絡資料仍保留，可查受影響名單。</li>
+<li>不自動改期或群發：同仁逐一處理，確認新場成功才修改原約。</li>
+<li>沒有自動提醒：前一天、當天提醒及付費Push不在首版。</li>
+</ul>
+<p>講者備註：關閉招生和實際取消辦理的流程正式版要清楚標記。此次只有本機關閉測試，沒有傳任何LINE訊息。</p>
+<p>依據：本交接包01已核定規格、02技術設計及2026-09-07本機原型。正式LINE、雲端持久資料庫、登入、XLSX與備份還原未完成。</p>
+<h2>19. 資料結構與唯一依據</h2>
+<p>正式資料表、索引及欄位詳見02；本機原型僅作操作參考。</p>
+<ul>
+<li>資料域 / 主要內容 / 不可省略的約束</li>
+<li>候選人／預約 / 四欄個資、LINE身分、確認快照、狀態 / 身分唯一；未來有效一人一約</li>
+<li>場次／排程 / 面試地、日期時間、general/admin、容量 / 面試地＋時點＋分組唯一</li>
+<li>預約事件 / 新約、改期、取消、同仁代操作 / 交易內一致，重送不重複</li>
+<li>對話／人工模式 / auto、pending_human、human及步驟 / 人工mode持久，不因草稿TTL解除</li>
+<li>罐頭／設定版本 / 草稿、發布、生效日、操作者 / 已有預約快照不被新設定重寫</li>
+<li>事件／發送／稽核 / 去重、重試狀態、Reply結果、匯出歷程 / 成立與送達分開，日志去識別</li>
+</ul>
+<p>講者備註：候選人、場次、預約、active guard、conversation_states、模板版本、Webhook及delivery/audit為邏輯設計。不是已完成的migration。過去confirmed歷史不能阻擋再次預約。</p>
+<p>依據：本交接包01已核定規格、02技術設計及2026-09-07本機原型。正式LINE、雲端持久資料庫、登入、XLSX與備份還原未完成。</p>
+<h2>20. 三項必須用真實資料庫驗證的交易</h2>
+<p>本機同步程式通過，不代表正式多人並發也安全。</p>
+<ul>
+<li>最後一名競爭：一般已有4人，兩人同時確認，只能成功1人；資料庫在寫入當下守住容量。</li>
+<li>同人重送與兩場競爭：相同事件只建立一次，不同事件仍檢查一人一約；不能只在前端禁用按鈕。</li>
+<li>改期失敗回滾：新場額滿、關閉或寫入失敗，原預約與原名額保持不變。</li>
+</ul>
+<p>講者備註：此頁為工程約束，不是可直接執行SQL。D1 batch的零列更新不必然等同statement error，實作要明確防止條件不符後仍寫入。</p>
+<p>依據：本交接包01已核定規格、02技術設計及2026-09-07本機原型。正式LINE、雲端持久資料庫、登入、XLSX與備份還原未完成。
+官方參考：
+<a href="https://developers.cloudflare.com/d1/worker-api/d1-database/">https://developers.cloudflare.com/d1/worker-api/d1-database/</a></p>
+<h2>21. 以零新增月費為目標</h2>
+<p>不接付費 AI、不買外掛、不做自動面試提醒。價格查核日2026-09-07。</p>
+<ul>
+<li>項目 / 首版方向 / 費用界線</li>
+<li>LINE 互動 / 當次訊息／Postback用Reply即時回覆 / Reply不計月量；延遲通知不得視為免費Reply</li>
+<li>AI 模型 / 不呼叫生成式AI API / ChatGPT Pro與Claude Max不含此bot的API費</li>
+<li>雲端服務 / 評估Workers Free + D1 Free / 免費額度、CPU、登入、備份須實測</li>
+<li>網址 / 先用測試網址，正式優先公司子網域 / 沒有可用網域時可能有年費</li>
+<li>LINE 月方案 / 優先維持輕用量，不預設升級 / 輕用量含200計量訊息；主動推播需另估</li>
+<li>維護 / 由公司帳號持有、同仁配合技術維護 / 人力、儲存或付費升級均需先批准</li>
+</ul>
+<p>講者備註：Workers Free現行100k請求/日，D1 Free每日5m列讀/100k列寫、總5GB。不是永久免費保證。LINE方案已公告11/1調价，開發上線前再查。詳細來源與費用防線在01/02。</p>
+<p>依據：本交接包01已核定規格、02技術設計及2026-09-07本機原型。正式LINE、雲端持久資料庫、登入、XLSX與備份還原未完成。
+官方參考：
+<a href="https://developers.line.biz/en/docs/messaging-api/pricing/">https://developers.line.biz/en/docs/messaging-api/pricing/</a>
+<a href="https://tw.linebiz.com/column/LINEOA-2026-Price-Plan/">https://tw.linebiz.com/column/LINEOA-2026-Price-Plan/</a>
+<a href="https://developers.cloudflare.com/workers/platform/pricing/">https://developers.cloudflare.com/workers/platform/pricing/</a>
+<a href="https://developers.cloudflare.com/d1/platform/pricing/">https://developers.cloudflare.com/d1/platform/pricing/</a>
+<a href="https://help.openai.com/en/articles/9039756-managing-billing-for-chatgpt-and-the-api-platform">https://help.openai.com/en/articles/9039756-managing-billing-for-chatgpt-and-the-api-platform</a>
+<a href="https://support.claude.com/en/articles/9876003-i-have-a-paid-claude-subscription-pro-max-team-or-enterprise-plans-why-do-i-have-to-pay-separately-to-use-the-claude-api-and-console">https://support.claude.com/en/articles/9876003-i-have-a-paid-claude-subscription-pro-max-team-or-enterprise-plans-why-do-i-have-to-pay-separately-to-use-the-claude-api-and-console</a></p>
+<h2>22. 登入、保存與上線界線</h2>
+<p>全同仁同權限，仍需每人登入、授權與操作紀錄。</p>
+<ul>
+<li>最少個資與一年保存：按面試日期起算1年；改期用最後確認日，取消用原定日。快照、備註、備份及匯出也納入管理。</li>
+<li>秘密不進交接檔：不附密碼、驗證碼、token、cookie、真實聊天或履歷。公司持有人自行在安全介面設定。</li>
+<li>先測試，核准後才正式：専用測試LINE、真資料庫交易、登入、XLSX、備份還原與人工共存都需驗收。</li>
+<li>本次完成：文件、原型、簡報、37項本機檢查。正式LINE、雲端及安全验收未完成。</li>
+</ul>
+<p>講者備註：原型在孤立無頭Edge及假資料執行。本次未瀏覽正式LINE或未讀訊息、未部署、未發送訊息。保存口徑是公司產品決策，不是法定期限意見。</p>
+<p>依據：本交接包01已核定規格、02技術設計及2026-09-07本機原型。正式LINE、雲端持久資料庫、登入、XLSX與備份還原未完成。</p>
+<h2>23. 同事與 AI 的執行順序</h2>
+<p>先讀規格，再分階段真正實作。每階段都交付測試證據。</p>
+<ul>
+<li>階段 / AI應產出 / 通往下一步的證據</li>
+<li>A 接手 / 已讀清單、差異、選型、repo與測試環境 / 不重問核定規則，不擅自加購</li>
+<li>B 核心 / 資料表、排程、原子占額、冪等與改期 / 真DB最後一名／同人競爭／失敗回滾</li>
+<li>C 後台 / 登入、全區查詢、設定、人工模式、XLSX / 兩個登入身分共用資料、授權與匯出測試</li>
+<li>D 測試LINE / 簽章、Postback、Reply、人工共存 / 真手機全流程、不插話、不重複歡迎</li>
+<li>E 上線審查 / 費用、備份還原、保存清理、回退與Go/No-Go / 關鍵項通過且公司明確核准才改正式設定</li>
+</ul>
+<p>講者備註：03文件提供總指令、A～E完整分段prompt、接續提示及獨立review指令。AI沒有工具或權限時須坦承未執行，不能報假部署。</p>
+<p>依據：本交接包01已核定規格、02技術設計及2026-09-07本機原型。正式LINE、雲端持久資料庫、登入、XLSX與備份還原未完成。</p>
+<h2>24. 接手時要補的資料與閱讀順序</h2>
+<p>已確認的十項業務決策不用再問，只補執行所需資料。</p>
+<ul>
+<li>先00。人看07簡報與06原型，AI讀01/02/04/05並貼03總指令。公司提供帳號權限、同仁信箱、DNS、個資窗口、切換回退窗口。</li>
+</ul>
+<p>講者備註：本包沒有帳號秘密或真實求職者資料。價格與平台功能上線前重新核對。原始歷史檔案留在原工作區，沒有混進本包。</p>
+<p>依據：本交接包01已核定規格、02技術設計及2026-09-07本機原型。正式LINE、雲端持久資料庫、登入、XLSX與備份還原未完成。</p>
+</article></details></main><footer>版本優先序：公司後續明確核准變更 > 01需求 > 02架構 > 05設定 > 04驗收 > 簡報及原型。</footer><a class="back" href="#top">回到頂端</a></body></html>

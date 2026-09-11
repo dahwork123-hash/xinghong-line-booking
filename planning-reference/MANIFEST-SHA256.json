@@ -1,0 +1,80 @@
+{
+  "note": "Regenerated after ASCII renaming and internal link rewrite.",
+  "files": [
+    {
+      "path": "00-start.html",
+      "sha256": "e5303d7a3318ea8332bef158a0813639d8330319459b6c159faa2fa8255ef002",
+      "bytes": 187335
+    },
+    {
+      "path": "01-requirements.md",
+      "sha256": "cbdd25a50b2ca3ac7b69132c357df08954f3275a70b60b71cd45d1247e84c379",
+      "bytes": 25126
+    },
+    {
+      "path": "02-original-architecture.md",
+      "sha256": "cde04ce410491b2d1097fc82ad92f907757e9e4523e8ec3fb83b7e44873b1949",
+      "bytes": 25856
+    },
+    {
+      "path": "03-original-ai-handoff.md",
+      "sha256": "5725f39b312cd5de6bf28a478ad331cab250b42f81e5e04b299f2466732277ec",
+      "bytes": 8548
+    },
+    {
+      "path": "04-acceptance.md",
+      "sha256": "8bcac6cd10ec2f8a545adc868d41178eacf91c60631ba3f94f36fc66fc49558f",
+      "bytes": 10011
+    },
+    {
+      "path": "05-config.json",
+      "sha256": "8085e700735e27a018ee82a87e9d739487cf59c679e78e462eb8b5b24c698aa5",
+      "bytes": 7732
+    },
+    {
+      "path": "06-prototype.html",
+      "sha256": "a70604de02b43081d2ea0267239b8a6251d88bc768e97c12bab284b8e32c1b45",
+      "bytes": 43985
+    },
+    {
+      "path": "07-presentation.pptx",
+      "sha256": "7013976fb832a4929500760936d64a43074f37d379f8a90d3b232ffdc9f1709b",
+      "bytes": 2211642
+    },
+    {
+      "path": "07-slides.html",
+      "sha256": "dd6d9a5c3d63741fea2d74fa3962f976784a0e97f3c9d478a9bdaac51bc20d04",
+      "bytes": 4305614
+    },
+    {
+      "path": "08-original-verification.md",
+      "sha256": "d93835aaefcd34e5969b0d92a63f4f1a495fcf0d83fdcb042ccc6358e1bc2111",
+      "bytes": 4305
+    },
+    {
+      "path": "09-handbook.html",
+      "sha256": "0d5bb13728054b3c1619dbd647d557ce998443d17d7e6ae28036d78233cf35fc",
+      "bytes": 122287
+    },
+    {
+      "path": "10-slide-notes.md",
+      "sha256": "66d2daa207eac84807bb5ea3c239c7a846a6fff776aeddee0c198fb1e8603f1a",
+      "bytes": 19959
+    },
+    {
+      "path": "11-original-ai-context.md",
+      "sha256": "89af042acde3e750b2fef1cc9f56014d08ffcfa6424547e35726b6e933878a4b",
+      "bytes": 102198
+    },
+    {
+      "path": "validation/prototype-tests.json",
+      "sha256": "12aa85be8f9f7e9693ee52f0f2bfe8a793e39b07891f45379075ffae718e0a09",
+      "bytes": 1698
+    },
+    {
+      "path": "validation/slides-validation.json",
+      "sha256": "0b2914227520fa7b650be87679cb140dea4b048ad96d368e88fc159510ab6b21",
+      "bytes": 348
+    }
+  ]
+}

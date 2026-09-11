@@ -1,0 +1,103 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "xinghong-booking-local",
+  "main": "src/worker.mjs",
+  "compatibility_date": "2026-09-08",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": true,
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "booking-db",
+      "database_id": "REPLACE_WITH_LOCAL_OR_TEST_DATABASE_ID",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "vars": {
+    "APP_ENV": "local",
+    "PUBLIC_ORIGIN": "http://127.0.0.1:8788",
+    "LAUNCH_APPROVED": "false",
+  },
+  "observability": { "enabled": false },
+  "triggers": { "crons": [] },
+  "env": {
+    "staging": {
+      "queues": {
+        "producers": [
+          { "binding": "LINE_EVENTS", "queue": "xinghong-line-staging" },
+        ],
+        "consumers": [
+          {
+            "queue": "xinghong-line-staging",
+            "max_batch_size": 1,
+            "max_batch_timeout": 0,
+            "max_retries": 3,
+            "retry_delay": 5,
+            "dead_letter_queue": "xinghong-line-staging-dlq",
+          },
+        ],
+      },
+      "triggers": { "crons": ["17 * * * *"] },
+      "name": "xinghong-booking-staging",
+      "workers_dev": false,
+      "preview_urls": false,
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "booking-db",
+          "database_id": "REPLACE_WITH_STAGING_DATABASE_ID",
+          "migrations_dir": "migrations",
+        },
+      ],
+      "vars": {
+        "APP_ENV": "staging",
+        "RETENTION_ENABLED": "false",
+        "PUBLIC_ORIGIN": "https://REPLACE_WITH_STAGING_HOST",
+        "LAUNCH_APPROVED": "false",
+        "ADMIN_EMAILS": "[]",
+      },
+    },
+    "production": {
+      "queues": {
+        "producers": [
+          { "binding": "LINE_EVENTS", "queue": "xinghong-line-production" },
+        ],
+        "consumers": [
+          {
+            "queue": "xinghong-line-production",
+            "max_batch_size": 1,
+            "max_batch_timeout": 0,
+            "max_retries": 3,
+            "retry_delay": 5,
+            "dead_letter_queue": "xinghong-line-production-dlq",
+          },
+        ],
+      },
+      "triggers": { "crons": ["17 * * * *"] },
+      "name": "xinghong-booking-production",
+      "workers_dev": false,
+      "preview_urls": false,
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "booking-db",
+          "database_id": "REPLACE_WITH_PRODUCTION_DATABASE_ID",
+          "migrations_dir": "migrations",
+        },
+      ],
+      "vars": {
+        "APP_ENV": "production",
+        "RETENTION_ENABLED": "false",
+        "PUBLIC_ORIGIN": "https://REPLACE_WITH_PRODUCTION_HOST",
+        "LAUNCH_APPROVED": "false",
+        "ADMIN_EMAILS": "[]",
+      },
+    },
+  },
+}

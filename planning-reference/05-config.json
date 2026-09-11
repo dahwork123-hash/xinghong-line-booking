@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "release": "H1-2026-09-07",
+  "status": "planning_seed_not_deployed",
+  "authority": "01-requirements.md",
+  "account": { "name": "星小鴻 (星鴻社會住宅徵才專區)", "publicId": "@064lhzfu", "preserveExistingWelcome": true },
+  "rules": {
+    "timezone": "Asia/Taipei",
+    "horizonDaysIncludingToday": 14,
+    "horizonInterpretation": "implementation_convention_today_through_day13",
+    "bookingCutoffMinutes": 60,
+    "bookingCutoffExclusive": true,
+    "cancelBeforeStartOnly": true,
+    "oneFutureActiveBookingPerLineUser": true,
+    "defaultCapacityPerOfficeDatetimePool": 5,
+    "offSystemManualConsumesCapacity": false,
+    "inSystemManualConsumesCapacity": true,
+    "manualOverbookOverride": false,
+    "reserveLegacyCapacity": false,
+    "countScopeLabel": "新系統預約紀錄，不含未登錄的人工預約",
+    "retentionCalendarYearsAfterInterview": 1,
+    "retentionRescheduleBasis": "latest_confirmed_interview_date",
+    "retentionCancelledBasis": "scheduled_interview_date",
+    "automaticReminders": false,
+    "paidAiApi": false,
+    "pushFallback": false,
+    "humanModeAutoTimeout": false,
+    "humanModeMutationPolicy": "pause_self_service_implementation_convention",
+    "allAuthorizedStaffHaveSamePermissions": true
+  },
+  "requiredFields": ["name", "phone", "jobId", "applyCity"],
+  "optionalFields": ["source"],
+  "notCollected": ["gender", "age", "residentialArea", "previousJob"],
+  "sources": ["104人力銀行", "1111人力銀行", "FB廣告", "其他", "未知"],
+  "jobs": [
+    { "id": "housing_advisor", "label": "社宅顧問", "pool": "general", "directBooking": true },
+    { "id": "management_trainee", "label": "儲備主管", "pool": "general", "directBooking": true },
+    { "id": "admin", "label": "行政職", "pool": "admin", "directBooking": true, "officeId": "taichung", "interviewer": "TOBY", "unapprovedFaq": "human" }
+  ],
+  "applicationCities": ["新竹", "台中", "彰化", "嘉義", "南投"],
+  "nantou": { "interviewOfficeOptions": ["taichung", "changhua"], "keepApplicationCity": true, "workOffice": "草屯", "usesDestinationGeneralPool": true },
+  "offices": [
+    { "id": "taichung", "city": "台中", "label": "台中分公司", "address": "台中市北屯區文心路四段698號6樓之1", "arrival": "來請直接上電梯六樓進辦公室，告知面試會先填寫履歷(請自備原子筆)，再由主管面試，如人數較多將採用團體面試。" },
+    { "id": "changhua", "city": "彰化", "label": "彰化分公司", "address": "彰化市華山路37號11樓之4", "landmark": "國泰銀行樓上", "arrival": "來請直接上電梯11樓進辦公室，告知面試會先填寫履歷(請自備原子筆)，再由主管面試，如人數較多將採用團體面試。" },
+    { "id": "chiayi", "city": "嘉義", "label": "嘉義分公司", "address": "嘉義市西區上海路175號2樓", "landmark": "旅遊家左邊樓梯上樓", "arrival": "來請直接上走樓梯2樓右轉進辦公室，告知面試會先填寫履歷(請自備原子筆)，再由主管面試，如人數較多將採用團體面試。" },
+    { "id": "hsinchu", "city": "新竹", "label": "新竹分公司", "address": "新竹縣竹北市光明五街342號2樓", "arrival": "來請直接上電梯二樓進辦公室，告知面試會先填寫履歷(請自備原子筆)，再由主管面試，如人數較多將採用團體面試。" }
+  ],
+  "weeklySchedules": [
+    { "officeId": "taichung", "pool": "general", "capacity": 5, "isoWeekdays": { "1": ["11:00", "14:00"], "2": ["11:00", "14:00", "16:00"], "3": ["10:00", "14:00", "16:00"], "4": ["11:00", "14:00", "16:00"], "5": ["14:00", "16:00"] } },
+    { "officeId": "taichung", "pool": "admin", "capacity": 5, "interviewer": "TOBY", "isoWeekdays": { "3": ["14:00"] } },
+    { "officeId": "changhua", "pool": "general", "capacity": 5, "isoWeekdays": { "4": ["14:00"] } },
+    { "officeId": "chiayi", "pool": "general", "capacity": 5, "isoWeekdays": { "3": ["16:00"], "4": ["16:00"] } },
+    { "officeId": "hsinchu", "pool": "general", "capacity": 5, "isoWeekdays": { "2": ["14:00"], "4": ["14:00"] } }
+  ],
+  "templates": [
+    { "key": "salary_general", "status": "user_provided", "scope": "general", "text": "您好，我們有底薪制(儲備培訓)、高獎金論件計酬及兼職，現場會有面試主管向您說明\n0900-1800，周休二日 見紅休" },
+    { "key": "work_general", "status": "user_provided", "scope": "general", "text": "您好，\n我們是政府合法委託社會住宅包租代管業者，致力於推廣社會住宅政策\n服務過程不收仲介費服務費，都是由政府經費撥款\n\n工作內容\n1.社會住宅推廣解說\n2.協助民眾辦理社會住宅相關補助\n3.評估房屋市場行情\n4.協助客戶處理糾紛\n5.電話拜訪客戶了解客戶案例\n\n現場會有面試主管向您說明" },
+    { "key": "office_taichung", "status": "user_provided", "scope": "taichung_general", "text": "您好，我們面試和上課，統一在北屯文心路，之後上班可以選就近的辦公室。" },
+    { "key": "office_nantou", "status": "user_provided", "scope": "nantou_general", "text": "目前面試統一在台中/彰化，之後辦公可以在草屯辦公室" },
+    { "key": "reschedule_offer", "status": "user_provided", "scope": "all", "text": "您好，要預約下次面試時間嗎?" },
+    { "key": "nantou_route", "status": "user_provided", "scope": "nantou_general", "text": "您好，請問您是否方便前往台中/或彰化分公司進行面試？\n\n台中：台中市北屯區文心路四段698號6樓之1\n彰化：彰化市華山路37號11樓之4\n\n若您方便前往，我們將進一步提供您具體的面試時間。謝謝您" },
+    { "key": "weather_notice", "status": "user_provided", "scope": "all", "text": "(如遇到國定假/颱風假會暫停面試，請再主動來訊預約)" },
+    { "key": "booking_success", "status": "draft_for_prelaunch_review", "scope": "all", "requiredVariables": ["bookingId", "job", "date", "time", "address", "arrival", "interviewerNote"], "text": "好的，已為您完成面試預約！\n預約編號：{{bookingId}}\n應徵職務：{{job}}\n面試日期：{{date}}\n面試時間：{{time}}\n面試地點：{{address}}\n\n{{arrival}}\n{{interviewerNote}}\n(如遇到國定假/颱風假會暫停面試，請再主動來訊預約)" },
+    { "key": "choose_slot", "status": "draft_for_prelaunch_review", "scope": "all", "text": "您好，請選擇方便的面試日期與時間。我們會在您最後確認時完成預約。" },
+    { "key": "full", "status": "draft_for_prelaunch_review", "scope": "all", "text": "這個時段的線上預約名額已滿，請選其他方便的時段，謝謝您！" },
+    { "key": "cutoff", "status": "draft_for_prelaunch_review", "scope": "all", "text": "這個時段已截止預約，請重新選擇其他日期或時間。" },
+    { "key": "human", "status": "draft_for_prelaunch_review", "scope": "all", "text": "好的，這個問題由招募同仁協助您，請稍候。" },
+    { "key": "missing_field", "status": "draft_for_prelaunch_review", "scope": "all", "text": "您好，還需要您的{{field}}，麻煩補充一下，方便我們幫您安排面試。" }
+  ],
+  "templateNotes": [
+    "user_provided 代表使用者提供，非外部事實查證或法律保證。",
+    "新功能文案為上線前校稿草稿；不可把草稿標成公司已核定原文。",
+    "日期與時間由場次即時產生；不得把舊台中週期文字作為可預約資料來源。",
+    "行政薪資、工作內容及工時未提供，交人工。",
+    "未含個資用途告知聯絡窗口；須公司上線前提供。"
+  ]
+}

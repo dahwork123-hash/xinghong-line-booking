@@ -1,0 +1,35 @@
+{
+  "name": "xinghong-line-booking",
+  "version": "0.1.0-rc.1",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "packageManager": "pnpm@11.19.0",
+  "scripts": {
+    "test": "node --test --test-concurrency=1 tests/*.test.mjs",
+    "test:cloudflare": "node --test tests-runtime/*.test.mjs",
+    "test:browser": "node scripts/browser-test.mjs",
+    "seed:generate": "node scripts/generate-seed.mjs",
+    "format": "prettier --write src public scripts tests tests-runtime package.json wrangler.jsonc",
+    "check": "node scripts/check.mjs",
+    "verify": "node scripts/verify.mjs",
+    "dev": "node scripts/dev-server.mjs",
+    "build": "wrangler deploy --env staging --dry-run --outdir .build",
+    "db:local": "wrangler d1 migrations apply booking-db --local",
+    "db:staging": "wrangler d1 migrations apply booking-db --remote --env staging",
+    "deploy:staging": "wrangler deploy --env staging",
+    "deploy:production": "node scripts/preflight.mjs && wrangler deploy --env production"
+  },
+  "dependencies": {
+    "exceljs": "4.4.0",
+    "jose": "6.2.3"
+  },
+  "devDependencies": {
+    "miniflare": "5.20260907.0-alpha",
+    "playwright": "1.62.1",
+    "prettier": "3.6.2",
+    "wrangler": "4.129.1"
+  }
+}

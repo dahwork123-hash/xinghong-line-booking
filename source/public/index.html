@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>星鴻面試預約管理</title>
+    <link rel="stylesheet" href="/style.css" />
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <header>
+      <div>
+        <strong>星鴻面試預約管理</strong
+        ><small id="identity">正在確認登入</small>
+      </div>
+      <span id="environment"></span
+      ><button id="reload" title="重新整理">重新整理</button
+      ><button id="logout">登出</button>
+    </header>
+    <section id="login" hidden>
+      <h1>管理者登入</h1>
+      <p>
+        正式環境使用公司 Cloudflare Access
+        登入。授權同仁皆可看全區及操作所有首版功能。
+      </p>
+      <p id="login-error" role="alert"></p>
+      <form id="login-form">
+        <label
+          >本機審查代碼<input
+            name="code"
+            type="password"
+            autocomplete="off"
+            required /></label
+        ><button>進入本機審查</button>
+      </form>
+      <small>只有本機開發環境接受此代碼；正式服務不接受本機驗證方式。</small>
+    </section>
+    <div id="workspace" hidden>
+      <nav id="nav"></nav>
+      <main>
+        <div id="status" role="status"></div>
+        <div id="view"></div>
+      </main>
+    </div>
+    <dialog id="dialog">
+      <div id="dialog-body"></div>
+      <button id="dialog-close">關閉</button>
+    </dialog>
+  </body>
+</html>

@@ -1,0 +1,11 @@
+node_modules/
+.local/
+.build/
+.wrangler/
+.dev.vars*
+.env*
+!.env.example
+backups/
+test-results/
+*.log
+*.sqlite*
