@@ -30,7 +30,33 @@ const board = {
 };
 const dayNames = ["", "一", "二", "三", "四", "五", "六", "日"];
 function slotKey(officeId, pool, day, time) {
-  return officeId + "|" + pool + "|" + day + "|" + time;
+  const start = parseSlotTime(time)?.start || time;
+  return officeId + "|" + pool + "|" + day + "|" + start;
+}
+function addMinutes(hhmm, minutes) {
+  const [h, m] = String(hhmm).split(":").map(Number);
+  const t = (((h * 60 + m + minutes) % 1440) + 1440) % 1440;
+  return (
+    String(Math.floor(t / 60)).padStart(2, "0") +
+    ":" +
+    String(t % 60).padStart(2, "0")
+  );
+}
+function parseSlotTime(value) {
+  const s = String(value || "").trim();
+  const m = s.match(
+    /^(([01]\d|2[0-3]):[0-5]\d)(?:\s*[-–~到至]\s*(([01]\d|2[0-3]):[0-5]\d))?$/,
+  );
+  if (!m) return null;
+  return { start: m[1], end: m[3] || addMinutes(m[1], 120) };
+}
+function slotToken(start, end) {
+  const p = parseSlotTime(end ? start + "-" + end : start);
+  return p ? p.start + "-" + p.end : "";
+}
+function formatSlotRange(value) {
+  const p = parseSlotTime(value);
+  return p ? p.start + "–" + p.end : String(value || "");
 }
 function dirColor(id) {
   const palette = ["#0f7a56", "#1d6fbf", "#b45309", "#7c3aed", "#be185d", "#0f766e"];
@@ -219,11 +245,11 @@ function render() {
           (!filter.pool || s.pool === filter.pool),
       ),
       total = list.reduce((n, s) => n + s.booked, 0);
-      body = `${filters()}<div class="stats"><div><small>新系統有效預約</small><strong>${total}</strong></div><div><small>其中行政</small><strong>${list.filter((s) => s.pool === "admin").reduce((n, s) => n + s.booked, 0)}</strong></div><div><small>符合場次／分組</small><strong>${list.length}</strong></div></div><div class="actions">${button("臨時加場", "add-session")}</div>${table(["日期時間", "面試地", "分組", "處長／主管", "已約／容量", "剩餘", "狀態", "管理"], list.map((s) => `<tr><td>${s.local_date} ${s.local_time}</td><td>${officeLabel(s.office_id)}</td><td>${s.pool === "admin" ? "行政" : "一般職缺"}</td><td>${esc(s.interviewer || "尚未指定")}</td><td>${button(s.booked + " / " + s.capacity, "session-bookings", s.id)}</td><td>${Math.max(0, s.capacity - s.booked)}</td><td><span class="badge ${s.manual_closed || !s.rule_active ? "closed" : ""}">${sessionStatus(s)}</span></td><td>${button("容量／停辦", "edit-session", s.id)}</td></tr>`).join(""))}`;
+      body = `${filters()}<div class="stats"><div><small>新系統有效預約</small><strong>${total}</strong></div><div><small>其中行政</small><strong>${list.filter((s) => s.pool === "admin").reduce((n, s) => n + s.booked, 0)}</strong></div><div><small>符合場次／分組</small><strong>${list.length}</strong></div></div><div class="actions">${button("臨時加場", "add-session")}</div>${table(["日期時間", "面試地", "分組", "處長／主管", "已約／容量", "剩餘", "狀態", "管理"], list.map((s) => `<tr><td>${s.local_date} ${formatSlotRange(s.local_time)}</td><td>${officeLabel(s.office_id)}</td><td>${s.pool === "admin" ? "行政" : "一般職缺"}</td><td>${esc(s.interviewer || "尚未指定")}</td><td>${button(s.booked + " / " + s.capacity, "session-bookings", s.id)}</td><td>${Math.max(0, s.capacity - s.booked)}</td><td><span class="badge ${s.manual_closed || !s.rule_active ? "closed" : ""}">${sessionStatus(s)}</span></td><td>${button("容量／停辦", "edit-session", s.id)}</td></tr>`).join(""))}`;
   }
   if (tab === "bookings") {
     const view = rows.slice(page * 20, page * 20 + 20);
-    body = `${filters()}<div class="actions">${button("匯出 Excel", "export")}<small>符合 ${rows.length} 筆；匯出所有符合結果，不限目前頁。</small></div>${table(["預約編號", "姓名／電話", "應徵地", "面試地", "職缺", "面試日期時間", "狀態", ""], view.map((b) => `<tr><td>${esc(b.id.slice(0, 8))}</td><td>${esc(b.name)}<small>${esc(b.phone)}</small></td><td>${esc(b.apply_city)}</td><td>${officeLabel(b.office_id)}</td><td>${jobLabel(b.job_id)}</td><td>${b.local_date} ${b.local_time}</td><td>${b.status === "confirmed" ? "已預約" : "已取消"}</td><td>${button("明細", "detail", b.id)}</td></tr>`).join(""))}<div class="pager">${button("上一頁", "page", Math.max(0, page - 1))}<span>${page + 1} / ${Math.max(1, Math.ceil(rows.length / 20))}</span>${button("下一頁", "page", Math.min(Math.max(0, Math.ceil(rows.length / 20) - 1), page + 1))}</div>`;
+    body = `${filters()}<div class="actions">${button("匯出 Excel", "export")}<small>符合 ${rows.length} 筆；匯出所有符合結果，不限目前頁。</small></div>${table(["預約編號", "姓名／電話", "應徵地", "面試地", "職缺", "面試日期時間", "狀態", ""], view.map((b) => `<tr><td>${esc(b.id.slice(0, 8))}</td><td>${esc(b.name)}<small>${esc(b.phone)}</small></td><td>${esc(b.apply_city)}</td><td>${officeLabel(b.office_id)}</td><td>${jobLabel(b.job_id)}</td><td>${b.local_date} ${formatSlotRange(b.local_time)}</td><td>${b.status === "confirmed" ? "已預約" : "已取消"}</td><td>${button("明細", "detail", b.id)}</td></tr>`).join(""))}<div class="pager">${button("上一頁", "page", Math.max(0, page - 1))}<span>${page + 1} / ${Math.max(1, Math.ceil(rows.length / 20))}</span>${button("下一頁", "page", Math.min(Math.max(0, Math.ceil(rows.length / 20) - 1), page + 1))}</div>`;
   }
   if (tab === "candidates")
     body = `<p>先按「人工接手」，再回原 LINE 聊天；處理完按「恢復自動」。</p><p><a href="https://manager.line.biz/" target="_blank" rel="noopener noreferrer">開啟原 LINE 官方帳號後台</a> <small>請同仁自行尋找對話，不承諾直接開啟指定人。瀏覽時不要點未讀訊息。</small></p>${table(["求職者", "狀態", "接手同仁", "更新時間", "操作"], candidates.map((c) => `<tr><td>${esc(c.name || "尚未完成預約")}<small>${esc(c.id.slice(0, 8))}</small></td><td><span class="badge ${c.mode !== "auto" ? "closed" : ""}">${{ auto: "自動", pending_human: "待人工", human: "人工接手" }[c.mode]}</span></td><td>${esc(c.actor || "")}</td><td>${dateTime(c.changed_at)}</td><td>${button("人工接手", "handoff", c.id)} ${button("恢復自動", "resume", c.id)} ${button("協助預約", "assist", c.id)}</td></tr>`).join(""))}`;
@@ -258,10 +284,10 @@ function render() {
           const dir =
             board.directors.find((d) => d.id === board.assignments[key]) ||
             groupDirectors(r)[0];
-          return `<button class="slot-chip" data-action="edit-slot" data-value="${esc(day + "|" + time)}" style="background:${dirColor(dir?.id || "x")}"><b>${esc(time)}</b><small>${esc([dir?.unit, dir?.name].filter(Boolean).join(" ") || "尚未指定")}</small></button>`;
+          return `<button class="slot-chip" data-action="edit-slot" data-value="${esc(day + "|" + time)}" style="background:${dirColor(dir?.id || "x")}"><b>${esc(formatSlotRange(time))}</b><small>${esc([dir?.unit, dir?.name].filter(Boolean).join(" ") || "尚未指定")}</small></button>`;
         })
         .join("");
-    body = `<div class="studio"><div class="studio-hero"><h1>處長與面試時間</h1><p>先改好處長姓名，再把每週固定面試時間排上去。求職者在 LINE 只會看到「套用」之後的時間。</p></div><div class="studio-steps"><span><i class="step-n">1</i>誰來面試：點卡片就能改姓名</span><span><i class="step-n">2</i>每週幾點：點時間可改處長，點＋可加時段</span></div><div class="people-grid">${people}<button class="person-add" data-action="add-director">＋ 新增處長或主管</button></div><div class="week-toolbar"><div class="office-pills">${pills}</div><label>這個組每場最多幾人<input id="board-capacity" type="number" min="1" max="99" value="${r.capacity}"></label></div><p class="hint-card">${officeLabel(r.officeId)}${r.pool === "admin" ? "行政（找主管）" : "一般職缺"}。點色塊可改「這場由誰面試」或刪掉；週末沒排就會是空的。</p><div class="week-board">${[1, 2, 3, 4, 5, 6, 7].map((d) => `<section class="day-col"><h3>星期${dayNames[d]}<small>${(r.isoWeekdays[d] || []).length}場</small></h3>${chips(d)}<button class="ghost-add" data-action="add-slot" data-value="${d}">＋ 加時段</button></section>`).join("")}</div><div class="studio-foot"><label>何時開始用新時間<input id="board-effective" type="date" min="${me.today}" value="${board.effectiveDate}"></label>${button("儲存草稿", "schedule-draft")}${button("預覽並套用給求職者", "schedule-preview", "", "primary")}<small>已有預約不會被搬走。單次停辦請用場次總覽。最後操作：${esc(settings.schedules.actor)}</small></div></div>`;
+    body = `<div class="studio"><div class="studio-hero"><h1>處長與面試時間</h1><p>先改好處長姓名，再把每週固定面試時間排上去。求職者在 LINE 只會看到「套用」之後的時間。</p></div><div class="studio-steps"><span><i class="step-n">1</i>誰來面試：點卡片就能改姓名</span><span><i class="step-n">2</i>每週幾點到幾點：點時間可改處長，點＋可加時段</span></div><div class="people-grid">${people}<button class="person-add" data-action="add-director">＋ 新增處長或主管</button></div><div class="week-toolbar"><div class="office-pills">${pills}</div><label>這個組每場最多幾人<input id="board-capacity" type="number" min="1" max="99" value="${r.capacity}"></label></div><p class="hint-card">${officeLabel(r.officeId)}${r.pool === "admin" ? "行政（找主管）" : "一般職缺"}。點色塊可改「這場由誰面試」或刪掉；週末沒排就會是空的。</p><div class="week-board">${[1, 2, 3, 4, 5, 6, 7].map((d) => `<section class="day-col"><h3>星期${dayNames[d]}<small>${(r.isoWeekdays[d] || []).length}場</small></h3>${chips(d)}<button class="ghost-add" data-action="add-slot" data-value="${d}">＋ 加時段</button></section>`).join("")}</div><div class="studio-foot"><label>何時開始用新時間<input id="board-effective" type="date" min="${me.today}" value="${board.effectiveDate}"></label>${button("儲存草稿", "schedule-draft")}${button("預覽並套用給求職者", "schedule-preview", "", "primary")}<small>已有預約不會被搬走。單次停辦請用場次總覽。最後操作：${esc(settings.schedules.actor)}</small></div></div>`;
   }
   if (tab === "templates") {
     const t = settings.templates.value[templateKey],
@@ -305,7 +331,7 @@ async function detail(bid) {
   const b = data.booking,
     s = b.snapshot;
   modal(
-    `<h2>預約明細</h2><dl class="keyvalue"><dt>編號</dt><dd>${esc(b.id)}</dd><dt>姓名電話</dt><dd>${esc(b.name)}／${esc(b.phone)}</dd><dt>職務／應徵地</dt><dd>${jobLabel(b.job_id)}／${esc(b.apply_city)}</dd><dt>面試</dt><dd>${s.date} ${s.time}<br>${esc(s.address)}<br>${esc(s.interviewer || "")}</dd><dt>狀態</dt><dd>${b.status === "confirmed" ? "已預約" : "已取消"}</dd></dl><div class="actions">${b.status === "confirmed" ? button("修改預約", "edit-booking", b.id) + button("取消預約", "cancel-booking", b.id, "danger") : ""}${button("人工接手", "handoff", b.candidate_id)}</div><h2>異動歷程</h2><ul class="history">${data.events.map((e) => `<li><small>${dateTime(e.at)} ${esc(e.actor.startsWith("line:") ? "本人" : e.actor)}</small>${esc({ created: "建立預約", rescheduled: "修改預約", cancelled: "取消預約" }[e.type] || e.type)}<br>${e.before_snapshot ? esc(JSON.parse(e.before_snapshot).date + " " + JSON.parse(e.before_snapshot).time) + " → " : ""}${esc(JSON.parse(e.after_snapshot).date + " " + JSON.parse(e.after_snapshot).time)}</li>`).join("")}</ul>`,
+    `<h2>預約明細</h2><dl class="keyvalue"><dt>編號</dt><dd>${esc(b.id)}</dd><dt>姓名電話</dt><dd>${esc(b.name)}／${esc(b.phone)}</dd><dt>職務／應徵地</dt><dd>${jobLabel(b.job_id)}／${esc(b.apply_city)}</dd><dt>面試</dt><dd>${s.date} ${formatSlotRange(s.time)}<br>${esc(s.address)}<br>${esc(s.interviewer || "")}</dd><dt>狀態</dt><dd>${b.status === "confirmed" ? "已預約" : "已取消"}</dd></dl><div class="actions">${b.status === "confirmed" ? button("修改預約", "edit-booking", b.id) + button("取消預約", "cancel-booking", b.id, "danger") : ""}${button("人工接手", "handoff", b.candidate_id)}</div><h2>異動歷程</h2><ul class="history">${data.events.map((e) => `<li><small>${dateTime(e.at)} ${esc(e.actor.startsWith("line:") ? "本人" : e.actor)}</small>${esc({ created: "建立預約", rescheduled: "修改預約", cancelled: "取消預約" }[e.type] || e.type)}<br>${e.before_snapshot ? esc(JSON.parse(e.before_snapshot).date + " " + JSON.parse(e.before_snapshot).time) + " → " : ""}${esc(JSON.parse(e.after_snapshot).date + " " + JSON.parse(e.after_snapshot).time)}</li>`).join("")}</ul>`,
   );
 }
 let editorKey = null;
@@ -362,9 +388,10 @@ function directorForm(d = null) {
 function slotForm(day, time = "") {
   const r = board.rules[board.officeIndex],
     key = time ? slotKey(r.officeId, r.pool, day, time) : "",
-    current = board.assignments[key] || groupDirectors(r)[0]?.id || "";
+    current = board.assignments[key] || groupDirectors(r)[0]?.id || "",
+    range = parseSlotTime(time || "14:00");
   modal(
-    `<h2>${time ? "調整這個時段" : "新增面試時間"}</h2><form id="slot-form" data-day="${day}" data-time="${esc(time)}"><label>星期${dayNames[day]}的時間<input name="time" type="time" value="${esc(time)}" required></label><label>這場由誰面試${select("directorId", groupDirectors(r).map((d) => [d.id, (d.unit ? d.unit + " " : "") + d.name]), current)}</label>${groupDirectors(r).length ? "" : "<p class='scope'>請先在上面新增這間分公司的處長。</p>"}${time ? button("刪掉這個時段", "remove-slot", day + "|" + time, "danger") : ""}<button class="primary" type="submit">${time ? "更新時段" : "加入時間表"}</button></form>`,
+    `<h2>${time ? "調整這個時段" : "新增面試時間"}</h2><form id="slot-form" data-day="${day}" data-time="${esc(time)}"><label>開始時間<input name="start" type="time" value="${esc(range.start)}" required></label><label>結束時間<input name="end" type="time" value="${esc(range.end)}" required></label><label>這場由誰面試${select("directorId", groupDirectors(r).map((d) => [d.id, (d.unit ? d.unit + " " : "") + d.name]), current)}</label>${groupDirectors(r).length ? "" : "<p class='scope'>請先在上面新增這間分公司的處長。</p>"}${time ? button("刪掉這個時段", "remove-slot", day + "|" + time, "danger") : ""}<button class="primary" type="submit">${time ? "更新時段" : "加入時間表"}</button></form>`,
   );
 }
 async function action(a, v) {
@@ -488,7 +515,7 @@ async function action(a, v) {
         .map((s) =>
           option(
             s.id,
-            s.local_date + " " + s.local_time + "（剩" + s.remaining + "）",
+            s.local_date + " " + formatSlotRange(s.local_time) + "（剩" + s.remaining + "）",
             "",
           ),
         )
@@ -497,7 +524,7 @@ async function action(a, v) {
   if (a === "cancel-booking") {
     const b = selectedBooking;
     modal(
-      `<h2>確認取消預約</h2><p>${esc(b.name)}，${b.local_date} ${b.local_time}</p><p>取消後釋放名額，原LINE通知由同仁處理。</p>${button("確認取消", "cancel-commit", b.id, "danger")}`,
+      `<h2>確認取消預約</h2><p>${esc(b.name)}，${b.local_date} ${formatSlotRange(b.local_time)}</p><p>取消後釋放名額，原LINE通知由同仁處理。</p>${button("確認取消", "cancel-commit", b.id, "danger")}`,
     );
   }
   if (a === "cancel-commit") {
@@ -524,7 +551,7 @@ async function action(a, v) {
   if (a === "edit-session") {
     const s = sessions.find((s) => s.id === v);
     modal(
-      `<h2>場次容量與停辦</h2><p>${officeLabel(s.office_id)} ${s.local_date} ${s.local_time}／${s.pool === "admin" ? "行政" : "一般職缺"}，已約${s.booked}人</p><form id="session-form" data-id="${esc(s.id)}" data-revision="${s.revision}"><label>容量<input name="capacity" type="number" min="1" max="99" value="${s.capacity}" required></label><label>場次狀態<select name="closed">${option("false", "開放", String(!!s.manual_closed))}${option("true", "人工關閉", String(!!s.manual_closed))}</select></label><label>原因<textarea name="reason" maxlength="300" required>${esc(s.reason)}</textarea></label><small>降低容量不刪已約者；關閉場次後請按受影響名單回原LINE通知。</small><button class="primary">確認修改</button></form>`,
+      `<h2>場次容量與停辦</h2><p>${officeLabel(s.office_id)} ${s.local_date} ${formatSlotRange(s.local_time)}／${s.pool === "admin" ? "行政" : "一般職缺"}，已約${s.booked}人</p><form id="session-form" data-id="${esc(s.id)}" data-revision="${s.revision}"><label>容量<input name="capacity" type="number" min="1" max="99" value="${s.capacity}" required></label><label>場次狀態<select name="closed">${option("false", "開放", String(!!s.manual_closed))}${option("true", "人工關閉", String(!!s.manual_closed))}</select></label><label>原因<textarea name="reason" maxlength="300" required>${esc(s.reason)}</textarea></label><small>降低容量不刪已約者；關閉場次後請按受影響名單回原LINE通知。</small><button class="primary">確認修改</button></form>`,
     );
   }
   if (a === "add-session")
@@ -540,7 +567,7 @@ async function action(a, v) {
           ["admin", "行政"],
         ],
         "general",
-      )}</label><label>日期<input name="date" type="date" min="${me.today}" required></label><label>時間<input name="time" type="time" required></label><label>容量<input name="capacity" type="number" value="5" min="1" max="99" required></label><label>原因<input name="reason" maxlength="300" required></label><button class="primary">確認加場</button></form>`,
+      )}</label><label>日期<input name="date" type="date" min="${me.today}" required></label><label>開始時間<input name="time" type="time" required></label><label>結束時間<input name="end" type="time" required></label><label>容量<input name="capacity" type="number" value="5" min="1" max="99" required></label><label>原因<input name="reason" maxlength="300" required></label><button class="primary">確認加場</button></form>`,
     );
   if (a === "schedule-draft") {
     if ($("#board-capacity"))
@@ -576,7 +603,7 @@ async function action(a, v) {
       result = await post("/schedules/preview", p);
     window.pendingSchedule = p;
     modal(
-      `<h2>套用給求職者之前</h2><p>生效日：${p.effectiveDate}。已有預約保持原時間。處長姓名已先存好。</p>${table(["場次", "已約", "調整"], result.affected.map((s) => `<tr><td>${officeLabel(s.office_id)} ${s.local_date} ${s.local_time}</td><td>${s.booked}</td><td>${s.removed ? "停止新約" : "容量 " + s.capacity + " → " + s.newCapacity}</td></tr>`).join(""))}<div class="actions">${button("確認套用", "schedule-publish", "", "primary")}</div>`,
+      `<h2>套用給求職者之前</h2><p>生效日：${p.effectiveDate}。已有預約保持原時間。處長姓名已先存好。</p>${table(["場次", "已約", "調整"], result.affected.map((s) => `<tr><td>${officeLabel(s.office_id)} ${s.local_date} ${formatSlotRange(s.local_time)}</td><td>${s.booked}</td><td>${s.removed ? "停止新約" : "容量 " + s.capacity + " → " + s.newCapacity}</td></tr>`).join(""))}<div class="actions">${button("確認套用", "schedule-publish", "", "primary")}</div>`,
     );
   }
   if (a === "schedule-publish") {
@@ -709,9 +736,11 @@ document.addEventListener("submit", (e) => {
       const r = board.rules[board.officeIndex],
         day = f.dataset.day,
         oldTime = f.dataset.time,
-        time = String(data.time || "").slice(0, 5);
-      if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time))
-        throw Error("請用 24 小時制時間，例如 14:00。");
+        start = String(data.start || "").slice(0, 5),
+        end = String(data.end || "").slice(0, 5),
+        time = slotToken(start, end);
+      if (!parseSlotTime(time) || end <= start)
+        throw Error("請填開始與結束時間，例如 14:00 到 16:00。");
       r.isoWeekdays[day] = r.isoWeekdays[day] || [];
       if (oldTime && oldTime !== time) {
         r.isoWeekdays[day] = r.isoWeekdays[day].filter((t) => t !== oldTime);

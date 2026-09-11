@@ -4,6 +4,7 @@ import {
   jobLabel,
   poolFor,
   dateLabel,
+  formatSlotRange,
   validateProfile,
   parseLegacy,
   AppError,
@@ -20,7 +21,7 @@ const textMessage = (text) => ({
 });
 function snapshotText(b) {
   const s = b.snapshot;
-  return `預約編號：${b.id}\n職務：${jobLabel(b.job_id)}\n姓名：${b.name}\n電話：${b.phone}\n應徵縣市：${b.apply_city}\n面試日期：${dateLabel(s.date)} ${s.time}\n面試地點：${s.address}${s.interviewer ? "\n面試主管：" + s.interviewer : ""}`;
+  return `預約編號：${b.id}\n職務：${jobLabel(b.job_id)}\n姓名：${b.name}\n電話：${b.phone}\n應徵縣市：${b.apply_city}\n面試日期：${dateLabel(s.date)} ${formatSlotRange(s.time)}\n面試地點：${s.address}${s.interviewer ? "\n面試主管：" + s.interviewer : ""}`;
 }
 function fillTemplate(text, values) {
   return text.replace(/{{([^}]+)}}/g, (_, k) => String(values[k] ?? ""));
@@ -126,7 +127,7 @@ export async function processConversation(store, cid, event, lock, env) {
         page = Math.max(0, d.timePage || 0);
       output = dateLabel(d.date) + "，請選擇時間。";
       for (const s of slots.slice(page * 10, page * 10 + 10))
-        choice(s.local_time, "time", { sessionId: s.id });
+        choice(formatSlotRange(s.local_time), "time", { sessionId: s.id });
       if (page > 0) choice("上一頁", "time-page", { page: page - 1 });
       if (slots.length > (page + 1) * 10)
         choice("下一頁", "time-page", { page: page + 1 });
@@ -138,7 +139,7 @@ export async function processConversation(store, cid, event, lock, env) {
         d.sessionId,
       );
       invariant(s, "INVALID_ACTION");
-      output = `請核對面試資訊：\n${d.name}／${d.phone}\n職務：${jobLabel(d.jobId)}\n應徵縣市：${d.applyCity}\n面試：${dateLabel(s.local_date)} ${s.local_time}\n地點：${s.address}${s.interviewer ? "\n主管：" + s.interviewer : ""}\n\n最後確認後才成立預約。`;
+      output = `請核對面試資訊：\n${d.name}／${d.phone}\n職務：${jobLabel(d.jobId)}\n應徵縣市：${d.applyCity}\n面試：${dateLabel(s.local_date)} ${formatSlotRange(s.local_time)}\n地點：${s.address}${s.interviewer ? "\n主管：" + s.interviewer : ""}\n\n最後確認後才成立預約。`;
       choice(d.bookingId ? "確認改期" : "確認預約", "confirm", {
         sessionId: d.sessionId,
         bookingId: d.bookingId || null,
@@ -351,7 +352,7 @@ export async function processConversation(store, cid, event, lock, env) {
           bookingId: b.id,
           job: jobLabel(b.job_id),
           date: dateLabel(s.date),
-          time: s.time,
+          time: formatSlotRange(s.time),
           address: s.address,
           arrival: s.arrival,
           interviewerNote: s.interviewer ? "面試主管：" + s.interviewer : "",

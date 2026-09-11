@@ -54,11 +54,11 @@
     { "id": "zhong-6", "name": "蘇睿雅", "title": "處長", "unit": "中六處", "officeId": "taichung", "pool": "general", "notifyEmail": "", "notifyLine": "" }
   ],
   "weeklySchedules": [
-    { "officeId": "taichung", "pool": "general", "capacity": 5, "isoWeekdays": { "1": ["11:00", "14:00"], "2": ["11:00", "14:00", "16:00"], "3": ["10:00", "14:00", "16:00"], "4": ["11:00", "14:00", "16:00"], "5": ["14:00", "16:00"] } },
-    { "officeId": "taichung", "pool": "admin", "capacity": 5, "interviewer": "TOBY", "isoWeekdays": { "3": ["14:00"] } },
-    { "officeId": "changhua", "pool": "general", "capacity": 5, "isoWeekdays": { "4": ["14:00"] } },
-    { "officeId": "chiayi", "pool": "general", "capacity": 5, "isoWeekdays": { "3": ["16:00"], "4": ["16:00"] } },
-    { "officeId": "hsinchu", "pool": "general", "capacity": 5, "isoWeekdays": { "2": ["14:00"], "4": ["14:00"] } }
+    { "officeId": "taichung", "pool": "general", "capacity": 5, "isoWeekdays": { "1": ["11:00-13:00", "14:00-16:00"], "2": ["11:00-13:00", "14:00-16:00", "16:00-18:00"], "3": ["10:00-12:00", "14:00-16:00", "16:00-18:00"], "4": ["11:00-13:00", "14:00-16:00", "16:00-18:00"], "5": ["14:00-16:00", "16:00-18:00"] } },
+    { "officeId": "taichung", "pool": "admin", "capacity": 5, "interviewer": "TOBY", "isoWeekdays": { "3": ["14:00-16:00"] } },
+    { "officeId": "changhua", "pool": "general", "capacity": 5, "isoWeekdays": { "4": ["14:00-16:00"] } },
+    { "officeId": "chiayi", "pool": "general", "capacity": 5, "isoWeekdays": { "3": ["16:00-18:00"], "4": ["16:00-18:00"] } },
+    { "officeId": "hsinchu", "pool": "general", "capacity": 5, "isoWeekdays": { "2": ["14:00-16:00"], "4": ["14:00-16:00"] } }
   ],
   "templates": [
     { "key": "salary_general", "status": "user_provided", "scope": "general", "text": "您好，我們有底薪制(儲備培訓)、高獎金論件計酬及兼職，現場會有面試主管向您說明\n0900-1800，周休二日 見紅休" },

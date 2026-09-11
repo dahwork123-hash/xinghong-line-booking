@@ -15,7 +15,7 @@ test("current Taichung schedule and administrative TOBY pool", async (t) => {
           s.pool === "general",
       )
       .map((s) => s.local_time),
-    ["10:00", "14:00", "16:00"],
+    ["10:00-12:00", "14:00-16:00", "16:00-18:00"],
   );
   assert.equal(
     rows.find((s) => s.id === "taichung_2026-09-09_1400_admin").interviewer,

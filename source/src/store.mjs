@@ -15,6 +15,9 @@ import {
   validateAssignments,
   interviewerFor,
   defaultAssignments,
+  parseSlotTime,
+  slotToken,
+  formatSlotRange,
   AppError,
   invariant,
   sha,
@@ -141,15 +144,17 @@ export class Store {
       for (const r of this.scheduleFor(config.value, date))
         for (const time of r.isoWeekdays[weekday(date)] || []) {
           const office = seed.offices.find((o) => o.id === r.officeId),
-            start = startsAt(date, time);
-          const sid = `${r.officeId}_${date}_${time.replace(":", "")}_${r.pool}`;
+            parsed = parseSlotTime(time),
+            start = parsed?.start || time,
+            token = slotToken(time);
+          const sid = `${r.officeId}_${date}_${start.replace(":", "")}_${r.pool}`;
           values.push([
             sid,
             r.officeId,
             r.pool,
-            start,
+            startsAt(date, start),
             date,
-            time,
+            token,
             r.capacity,
             office.address +
               (office.landmark ? " (" + office.landmark + ")" : ""),
@@ -160,7 +165,7 @@ export class Store {
               r.officeId,
               r.pool,
               date,
-              time,
+              start,
             ),
             config.revision,
           ]);
@@ -374,7 +379,7 @@ export class Store {
             bookingId: bid,
             officeId: session.office_id,
             date: session.local_date,
-            time: session.local_time,
+            time: formatSlotRange(session.local_time),
             address: session.address,
             arrival: session.arrival,
             interviewer: session.interviewer,
@@ -617,17 +622,18 @@ export class Store {
     const r = seed.weeklySchedules.find(
       (r) => r.officeId === input.officeId && r.pool === input.pool,
     );
+    const parsed = parseSlotTime(
+      input.end ? String(input.time) + "-" + String(input.end) : input.time,
+    );
     invariant(
-      r &&
-        /^([01]\d|2[0-3]):[0-5]\d$/.test(input.time || "") &&
-        safeRange(input.date, input.date),
+      r && parsed && parsed.end > parsed.start && safeRange(input.date, input.date),
       "INVALID_INPUT",
     );
     invariant(
       input.pool !== "admin" ||
         (input.officeId === "taichung" &&
           weekday(input.date) === 3 &&
-          input.time === "14:00"),
+          parsed.start === "14:00"),
       "INVALID_ADMIN_TIME",
     );
     invariant(
@@ -651,9 +657,9 @@ export class Store {
         sid,
         o.id,
         r.pool,
-        startsAt(input.date, input.time),
+        startsAt(input.date, parsed.start),
         input.date,
-        input.time,
+        slotToken(parsed.start, parsed.end),
         cap,
         o.address + (o.landmark ? " (" + o.landmark + ")" : ""),
         o.arrival,
@@ -663,7 +669,7 @@ export class Store {
           o.id,
           r.pool,
           input.date,
-          input.time,
+          parsed.start,
         ),
         0,
         "extra",
@@ -713,8 +719,8 @@ export class Store {
         return {
           ...s,
           newCapacity: r.capacity,
-          removed: !(r.isoWeekdays[weekday(s.local_date)] || []).includes(
-            s.local_time,
+          removed: !(r.isoWeekdays[weekday(s.local_date)] || []).some(
+            (t) => parseSlotTime(t)?.start === parseSlotTime(s.local_time)?.start,
           ),
         };
       })

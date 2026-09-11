@@ -1,5 +1,5 @@
 import ExcelJS from "exceljs";
-import { jobLabel, officeLabel, AppError } from "./domain.mjs";
+import { jobLabel, officeLabel, formatSlotRange, AppError } from "./domain.mjs";
 
 export async function exportBookings(rows, filter, actor) {
   if (rows.length > 1000) throw new AppError("EXPORT_TOO_LARGE", 413);
@@ -36,7 +36,7 @@ export async function exportBookings(rows, filter, actor) {
       b.apply_city,
       officeLabel(b.office_id),
       b.local_date,
-      b.local_time,
+      formatSlotRange(b.local_time),
       b.pool === "admin" ? "行政" : "一般職缺",
       b.status === "confirmed" ? "已預約" : "已取消",
       b.source,

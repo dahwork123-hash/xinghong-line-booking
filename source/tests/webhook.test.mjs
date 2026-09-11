@@ -54,7 +54,7 @@ test("signed LINE full booking, duplicate confirmation, query and cancellation",
   await h.click("略過");
   const date = h.sent.at(-1).messages[0].quickReply.items[0].action.label;
   await h.click(date);
-  await h.click("11:00");
+  await h.click("11:00–13:00");
   const confirmation = await h.click("確認預約");
   assert.match(confirmation.message.text, /預約/);
   assert.equal((await h.store.listBookings({})).length, 1);
@@ -77,7 +77,7 @@ test("Nantou interview routes to Changhua preserving application city", async (t
   await h.click("略過");
   const d = h.sent.at(-1).messages[0].quickReply.items[0].action.label;
   await h.click(d);
-  await h.click("14:00");
+  await h.click("14:00–16:00");
   await h.click("確認預約");
   const b = (await h.store.listBookings({}))[0];
   assert.equal(b.apply_city, "南投");

@@ -99,13 +99,29 @@
           { id: "zhong-6", name: "蘇睿雅", title: "處長", unit: "中六處", officeId: "taichung", pool: "general", notifyEmail: "", notifyLine: "" },
         ],
         rules: [
-          { officeId: "taichung", pool: "general", capacity: 5, isoWeekdays: { 1: ["11:00", "14:00"], 2: ["11:00", "14:00", "16:00"], 3: ["10:00", "14:00", "16:00"], 4: ["11:00", "14:00", "16:00"], 5: ["14:00", "16:00"] } },
+          { officeId: "taichung", pool: "general", capacity: 5, isoWeekdays: { 1: ["11:00-13:00", "14:00-16:00"], 2: ["11:00-13:00", "14:00-16:00", "16:00-18:00"], 3: ["10:00-12:00", "14:00-16:00", "16:00-18:00"], 4: ["11:00-13:00", "14:00-16:00", "16:00-18:00"], 5: ["14:00-16:00", "16:00-18:00"] } },
         ],
       };
-      const KEY = "xinghong-pages-board-v3";
+      const KEY = "xinghong-pages-board-v4";
       const esc = (s) =>
         String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-      const slotKey = (o, p, d, t) => o + "|" + p + "|" + d + "|" + t;
+      const addMinutes = (hhmm, minutes) => {
+        const [h, m] = String(hhmm).split(":").map(Number);
+        const t = (((h * 60 + m + minutes) % 1440) + 1440) % 1440;
+        return String(Math.floor(t / 60)).padStart(2, "0") + ":" + String(t % 60).padStart(2, "0");
+      };
+      const parseRange = (value) => {
+        const s = String(value || "").trim();
+        const m = s.match(/^(([01]\d|2[0-3]):[0-5]\d)(?:\s*[-–~到至]\s*(([01]\d|2[0-3]):[0-5]\d))?$/);
+        if (!m) return { start: "", end: "" };
+        return { start: m[1], end: m[3] || addMinutes(m[1], 120) };
+      };
+      const rangeLabel = (value) => {
+        const p = parseRange(value);
+        return p.start ? p.start + "–" + p.end : "";
+      };
+      const rangeToken = (start, end) => start + "-" + (end || addMinutes(start, 120));
+      const slotKey = (o, p, d, t) => o + "|" + p + "|" + d + "|" + (parseRange(t).start || t);
       const color = (id) => {
         const p = ["#0f7a56", "#1d6fbf", "#b45309", "#7c3aed", "#be185d", "#0f766e"];
         let h = 0;
@@ -160,10 +176,10 @@
               const dir =
                 board.directors.find((d) => d.id === board.assignments[slotKey(r.officeId, r.pool, day, time)]) ||
                 group(r)[0];
-              return `<button class="slot-chip" data-act="edit-slot" data-id="${day}|${time}" style="background:${color(dir?.id || "x")}"><b>${esc(time)}</b><small>${esc([dir?.unit, dir?.name].filter(Boolean).join(" ") || "尚未指定")}</small></button>`;
+              return `<button class="slot-chip" data-act="edit-slot" data-id="${day}|${time}" style="background:${color(dir?.id || "x")}"><b>${esc(rangeLabel(time))}</b><small>${esc([dir?.unit, dir?.name].filter(Boolean).join(" ") || "尚未指定")}</small></button>`;
             })
             .join("");
-        $("#app").innerHTML = `<div class="studio"><div class="studio-hero"><h1>處長與面試時間</h1><p>目前先排台中一般職缺。點色塊可指定中一處到中六處哪位處長面試。</p></div><div class="studio-steps"><span><i class="step-n">1</i>六位處長</span><span><i class="step-n">2</i>每週幾點</span></div><div class="people-grid">${people}<button class="person-add" data-act="add-dir">＋ 新增處長或主管</button></div><div class="week-toolbar">${board.rules.length > 1 ? `<div class="office-pills">${pills}</div>` : ""}<label>這個組每場最多幾人<input id="cap" type="number" min="1" max="99" value="${r.capacity}"></label></div><p class="hint-card">台中一般職缺。點時段可改成黃岳澤、賴重丞、吳震、吳清蓮、童翊桓或蘇睿雅。</p><div class="week-board">${[1, 2, 3, 4, 5, 6, 7].map((d) => `<section class="day-col"><h3>星期${DAY[d]}<small>${(r.isoWeekdays[d] || []).length}場</small></h3>${chips(d)}<button class="ghost-add" data-act="add-slot" data-id="${d}">＋ 加時段</button></section>`).join("")}</div><div class="studio-foot"><button class="primary" data-act="save">儲存到這台電腦</button><button data-act="reset">回復預設</button><small>正式 LINE 機器人不會讀這個網頁；這是給同仁先對時間表用的公開頁。</small></div></div>`;
+        $("#app").innerHTML = `<div class="studio"><div class="studio-hero"><h1>處長與面試時間</h1><p>目前先排台中一般職缺。點色塊可指定中一處到中六處哪位處長面試。</p></div><div class="studio-steps"><span><i class="step-n">1</i>六位處長</span><span><i class="step-n">2</i>每週幾點到幾點</span></div><div class="people-grid">${people}<button class="person-add" data-act="add-dir">＋ 新增處長或主管</button></div><div class="week-toolbar">${board.rules.length > 1 ? `<div class="office-pills">${pills}</div>` : ""}<label>這個組每場最多幾人<input id="cap" type="number" min="1" max="99" value="${r.capacity}"></label></div><p class="hint-card">台中一般職缺。點時段可改成黃岳澤、賴重丞、吳震、吳清蓮、童翊桓或蘇睿雅。</p><div class="week-board">${[1, 2, 3, 4, 5, 6, 7].map((d) => `<section class="day-col"><h3>星期${DAY[d]}<small>${(r.isoWeekdays[d] || []).length}場</small></h3>${chips(d)}<button class="ghost-add" data-act="add-slot" data-id="${d}">＋ 加時段</button></section>`).join("")}</div><div class="studio-foot"><button class="primary" data-act="save">儲存到這台電腦</button><button data-act="reset">回復預設</button><small>正式 LINE 機器人不會讀這個網頁；這是給同仁先對時間表用的公開頁。</small></div></div>`;
       }
       function modal(html) {
         $("#dialog-body").innerHTML = html;
@@ -177,9 +193,10 @@
       }
       function slotForm(day, time) {
         const r = board.rules[board.officeIndex];
-        const current = board.assignments[slotKey(r.officeId, r.pool, day, time)] || group(r)[0]?.id || "";
+        const range = parseRange(time || "14:00");
+        const current = board.assignments[slotKey(r.officeId, r.pool, day, time || range.start)] || group(r)[0]?.id || "";
         modal(
-          `<h2>${time ? "調整這個時段" : "新增面試時間"}</h2><form id="slot-form" data-day="${day}" data-time="${esc(time || "")}"><label>星期${DAY[day]}的時間<input name="time" type="time" value="${esc(time || "")}" required></label><label>這場由誰面試<select name="directorId">${group(r).map((d) => `<option value="${esc(d.id)}" ${d.id === current ? "selected" : ""}>${esc([d.unit, d.name].filter(Boolean).join(" "))}</option>`).join("")}</select></label>${time ? `<button type="button" class="danger" data-act="remove-slot" data-id="${day}|${time}">刪掉這個時段</button>` : ""}<button class="primary">${time ? "更新時段" : "加入時間表"}</button></form>`,
+          `<h2>${time ? "調整這個時段" : "新增面試時間"}</h2><form id="slot-form" data-day="${day}" data-time="${esc(time || "")}"><label>開始時間<input name="start" type="time" value="${esc(range.start)}" required></label><label>結束時間<input name="end" type="time" value="${esc(range.end)}" required></label><label>這場由誰面試<select name="directorId">${group(r).map((d) => `<option value="${esc(d.id)}" ${d.id === current ? "selected" : ""}>${esc([d.unit, d.name].filter(Boolean).join(" "))}</option>`).join("")}</select></label>${time ? `<button type="button" class="danger" data-act="remove-slot" data-id="${day}|${time}">刪掉這個時段</button>` : ""}<button class="primary">${time ? "更新時段" : "加入時間表"}</button></form>`,
         );
       }
       document.addEventListener("click", (e) => {
@@ -243,7 +260,13 @@
           const r = board.rules[board.officeIndex],
             day = f.dataset.day,
             oldTime = f.dataset.time,
-            time = String(data.time || "").slice(0, 5);
+            start = String(data.start || "").slice(0, 5),
+            end = String(data.end || "").slice(0, 5),
+            time = rangeToken(start, end);
+          if (!parseRange(start).start || !end || end <= start) {
+            toast("請填開始與結束時間，例如 14:00 到 16:00。");
+            return;
+          }
           r.isoWeekdays[day] = r.isoWeekdays[day] || [];
           if (oldTime && oldTime !== time) {
             r.isoWeekdays[day] = r.isoWeekdays[day].filter((t) => t !== oldTime);

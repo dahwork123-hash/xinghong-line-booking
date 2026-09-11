@@ -14,6 +14,7 @@ import {
   validateDirectors,
   defaultAssignments,
   interviewerFor,
+  formatSlotRange,
 } from "../src/domain.mjs";
 import { profile } from "./helpers.mjs";
 
@@ -70,6 +71,13 @@ test("weekly schedule cannot mix or duplicate capacity pools", () => {
   const bad = structuredClone(seed.weeklySchedules);
   bad[0].isoWeekdays[1] = ["11:00", "11:00"];
   assert.throws(() => validateSchedules(bad));
+});
+test("slot labels are start-to-end ranges and default to two hours", () => {
+  assert.equal(formatSlotRange("14:00"), "14:00–16:00");
+  assert.equal(formatSlotRange("14:00-16:00"), "14:00–16:00");
+  const rules = validateSchedules(seed.weeklySchedules);
+  assert.equal(rules[0].isoWeekdays["3"][0], "10:00-12:00");
+  assert.equal(rules[0].isoWeekdays["3"][1], "14:00-16:00");
 });
 test("legacy form uses application city, never home city", () => {
   const p = parseLegacy(

@@ -5,8 +5,35 @@ export const epoch = () => Math.floor(Date.now() / 1000);
 export const id = () => crypto.randomUUID();
 export const localDate = (seconds) =>
   new Date((seconds + 28800) * 1000).toISOString().slice(0, 10);
-export const startsAt = (date, time) =>
-  Date.parse(`${date}T${time}:00+08:00`) / 1000;
+export function addMinutes(hhmm, minutes) {
+  const [h, m] = String(hhmm).split(":").map(Number);
+  const t = (((h * 60 + m + minutes) % 1440) + 1440) % 1440;
+  return (
+    String(Math.floor(t / 60)).padStart(2, "0") +
+    ":" +
+    String(t % 60).padStart(2, "0")
+  );
+}
+export function parseSlotTime(value) {
+  const s = String(value || "").trim();
+  const m = s.match(
+    /^(([01]\d|2[0-3]):[0-5]\d)(?:\s*[-–~到至]\s*(([01]\d|2[0-3]):[0-5]\d))?$/,
+  );
+  if (!m) return null;
+  return { start: m[1], end: m[3] || addMinutes(m[1], 120) };
+}
+export function slotToken(start, end) {
+  const p = parseSlotTime(end ? start + "-" + end : start);
+  return p ? p.start + "-" + p.end : "";
+}
+export function formatSlotRange(value) {
+  const p = parseSlotTime(value);
+  return p ? p.start + "–" + p.end : String(value || "");
+}
+export const startsAt = (date, time) => {
+  const start = parseSlotTime(time)?.start || time;
+  return Date.parse(`${date}T${start}:00+08:00`) / 1000;
+};
 export const weekday = (date) =>
   new Date(`${date}T12:00:00+08:00`).getUTCDay() || 7;
 export const poolFor = (job) => (job === "admin" ? "admin" : "general");
@@ -127,10 +154,12 @@ export function validateSchedules(input) {
         /^[1-7]$/.test(d) && Array.isArray(times) && times.length <= 8,
         "INVALID_SCHEDULE",
       );
+      const parsed = times.map((t) =>
+        typeof t === "string" ? parseSlotTime(t) : null,
+      );
       invariant(
-        times.every(
-          (t) => typeof t === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(t),
-        ) && new Set(times).size === times.length,
+        parsed.every((p) => p && p.end > p.start) &&
+          new Set(parsed.map((p) => p.start)).size === parsed.length,
         "INVALID_TIME",
       );
     }
@@ -147,11 +176,24 @@ export function validateSchedules(input) {
     officeId: r.officeId,
     pool: r.pool,
     capacity: r.capacity,
-    isoWeekdays: r.isoWeekdays,
+    isoWeekdays: Object.fromEntries(
+      Object.entries(r.isoWeekdays).map(([d, times]) => [
+        d,
+        times.map((t) => slotToken(t)),
+      ]),
+    ),
   }));
 }
 export function slotKey(officeId, pool, day, time) {
-  return officeId + "|" + pool + "|" + day + "|" + time;
+  return (
+    officeId +
+    "|" +
+    pool +
+    "|" +
+    day +
+    "|" +
+    (parseSlotTime(time)?.start || time)
+  );
 }
 export function defaultAssignments(directors = seed.directors) {
   const map = {};
