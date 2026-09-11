@@ -102,7 +102,11 @@ test("each weekly slot can resolve a director name", () => {
       "2026-09-08",
       "14:00",
     ),
-    "台中處長",
+    "中一處 黃岳澤",
   );
-  assert.throws(() => validateDirectors(directors.slice(1)));
+  assert.throws(() =>
+    validateDirectors(
+      directors.filter((d) => !(d.officeId === "taichung" && d.pool === "general")),
+    ),
+  );
 });

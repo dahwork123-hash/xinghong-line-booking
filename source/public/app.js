@@ -232,7 +232,7 @@ function render() {
     const r = board.rules[board.officeIndex];
     const people = board.directors
       .map(
-        (d) => `<article class="person-card"><div class="person-top"><span class="avatar" style="background:${dirColor(d.id)}">${esc(d.name.slice(0, 1))}</span><div><strong>${esc(d.name)}</strong><span class="meta">${esc(d.title)} · ${officeLabel(d.officeId)} · ${d.pool === "admin" ? "行政" : "一般職缺"}</span></div></div><div class="notify">${d.notifyEmail || d.notifyLine ? esc([d.notifyEmail, d.notifyLine].filter(Boolean).join(" · ")) : "還沒填通知方式，之後可再補信箱"}</div><div class="actions">${button("改姓名／通知", "edit-director", d.id)}</div></article>`,
+        (d) => `<article class="person-card"><div class="person-top"><span class="avatar" style="background:${dirColor(d.id)}">${esc(d.name.slice(0, 1))}</span><div><strong>${esc(d.name)}</strong><span class="meta">${esc(d.unit || d.title)} · ${officeLabel(d.officeId)} · ${d.pool === "admin" ? "行政" : "一般職缺"}</span></div></div><div class="notify">${d.notifyEmail || d.notifyLine ? esc([d.notifyEmail, d.notifyLine].filter(Boolean).join(" · ")) : "還沒填通知方式，之後可再補信箱"}</div><div class="actions">${button("改姓名／通知", "edit-director", d.id)}</div></article>`,
       )
       .join("");
     const pills = board.rules
@@ -252,7 +252,7 @@ function render() {
           const dir =
             board.directors.find((d) => d.id === board.assignments[key]) ||
             groupDirectors(r)[0];
-          return `<button class="slot-chip" data-action="edit-slot" data-value="${esc(day + "|" + time)}" style="background:${dirColor(dir?.id || "x")}"><b>${esc(time)}</b><small>${esc(dir?.name || "尚未指定")}</small></button>`;
+          return `<button class="slot-chip" data-action="edit-slot" data-value="${esc(day + "|" + time)}" style="background:${dirColor(dir?.id || "x")}"><b>${esc(time)}</b><small>${esc([dir?.unit, dir?.name].filter(Boolean).join(" ") || "尚未指定")}</small></button>`;
         })
         .join("");
     body = `<div class="studio"><div class="studio-hero"><h1>處長與面試時間</h1><p>先改好處長姓名，再把每週固定面試時間排上去。求職者在 LINE 只會看到「套用」之後的時間。</p></div><div class="studio-steps"><span><i class="step-n">1</i>誰來面試：點卡片就能改姓名</span><span><i class="step-n">2</i>每週幾點：點時間可改處長，點＋可加時段</span></div><div class="people-grid">${people}<button class="person-add" data-action="add-director">＋ 新增處長或主管</button></div><div class="week-toolbar"><div class="office-pills">${pills}</div><label>這個組每場最多幾人<input id="board-capacity" type="number" min="1" max="99" value="${r.capacity}"></label></div><p class="hint-card">${officeLabel(r.officeId)}${r.pool === "admin" ? "行政（找主管）" : "一般職缺"}。點色塊可改「這場由誰面試」或刪掉；週末沒排就會是空的。</p><div class="week-board">${[1, 2, 3, 4, 5, 6, 7].map((d) => `<section class="day-col"><h3>星期${dayNames[d]}<small>${(r.isoWeekdays[d] || []).length}場</small></h3>${chips(d)}<button class="ghost-add" data-action="add-slot" data-value="${d}">＋ 加時段</button></section>`).join("")}</div><div class="studio-foot"><label>何時開始用新時間<input id="board-effective" type="date" min="${me.today}" value="${board.effectiveDate}"></label>${button("儲存草稿", "schedule-draft")}${button("預覽並套用給求職者", "schedule-preview", "", "primary")}<small>已有預約不會被搬走。單次停辦請用場次總覽。最後操作：${esc(settings.schedules.actor)}</small></div></div>`;
@@ -350,7 +350,7 @@ function weeklyPayload() {
 function directorForm(d = null) {
   const rule = board.rules[board.officeIndex];
   modal(
-    `<h2>${d ? "修改處長資料" : "新增處長或主管"}</h2><form id="director-form" data-id="${esc(d?.id || "")}"><label>姓名<input name="name" value="${esc(d?.name || "")}" maxlength="40" required placeholder="例如：王小明"></label><label>職稱${select("title", [["處長", "處長"], ["主管", "主管"], ["面試官", "面試官"]], d?.title || "處長")}</label><label>面試地${select("officeId", me.offices.map((o) => [o.id, o.city]), d?.officeId || rule.officeId)}</label><label>面試哪一組${select("pool", [["general", "一般職缺"], ["admin", "行政"]], d?.pool || rule.pool)}</label><label>通知信箱（可之後再填）<input name="notifyEmail" type="email" value="${esc(d?.notifyEmail || "")}" placeholder="director@example.com"></label><label>LINE 識別（可空）<input name="notifyLine" value="${esc(d?.notifyLine || "")}" maxlength="80" placeholder="選填"></label><p class="hint">姓名會顯示給求職者。通知信箱之後用來提醒這場由誰面試。</p><button class="primary" type="submit">儲存這位處長</button></form>`,
+    `<h2>${d ? "修改處長資料" : "新增處長或主管"}</h2><form id="director-form" data-id="${esc(d?.id || "")}"><label>姓名<input name="name" value="${esc(d?.name || "")}" maxlength="40" required placeholder="例如：黃岳澤"></label><label>處別／單位<input name="unit" value="${esc(d?.unit || "")}" maxlength="20" placeholder="例如：中一處"></label><label>職稱${select("title", [["處長", "處長"], ["主管", "主管"], ["面試官", "面試官"]], d?.title || "處長")}</label><label>面試地${select("officeId", me.offices.map((o) => [o.id, o.city]), d?.officeId || rule.officeId)}</label><label>面試哪一組${select("pool", [["general", "一般職缺"], ["admin", "行政"]], d?.pool || rule.pool)}</label><label>通知信箱（可之後再填）<input name="notifyEmail" type="email" value="${esc(d?.notifyEmail || "")}" placeholder="director@example.com"></label><label>LINE 識別（可空）<input name="notifyLine" value="${esc(d?.notifyLine || "")}" maxlength="80" placeholder="選填"></label><p class="hint">姓名會顯示給求職者。通知信箱之後用來提醒這場由誰面試。</p><button class="primary" type="submit">儲存這位處長</button></form>`,
   );
 }
 function slotForm(day, time = "") {
@@ -358,7 +358,7 @@ function slotForm(day, time = "") {
     key = time ? slotKey(r.officeId, r.pool, day, time) : "",
     current = board.assignments[key] || groupDirectors(r)[0]?.id || "";
   modal(
-    `<h2>${time ? "調整這個時段" : "新增面試時間"}</h2><form id="slot-form" data-day="${day}" data-time="${esc(time)}"><label>星期${dayNames[day]}的時間<input name="time" type="time" value="${esc(time)}" required></label><label>這場由誰面試${select("directorId", groupDirectors(r).map((d) => [d.id, d.name + "（" + d.title + "）"]), current)}</label>${groupDirectors(r).length ? "" : "<p class='scope'>請先在上面新增這間分公司的處長。</p>"}${time ? button("刪掉這個時段", "remove-slot", day + "|" + time, "danger") : ""}<button class="primary" type="submit">${time ? "更新時段" : "加入時間表"}</button></form>`,
+    `<h2>${time ? "調整這個時段" : "新增面試時間"}</h2><form id="slot-form" data-day="${day}" data-time="${esc(time)}"><label>星期${dayNames[day]}的時間<input name="time" type="time" value="${esc(time)}" required></label><label>這場由誰面試${select("directorId", groupDirectors(r).map((d) => [d.id, (d.unit ? d.unit + " " : "") + d.name]), current)}</label>${groupDirectors(r).length ? "" : "<p class='scope'>請先在上面新增這間分公司的處長。</p>"}${time ? button("刪掉這個時段", "remove-slot", day + "|" + time, "danger") : ""}<button class="primary" type="submit">${time ? "更新時段" : "加入時間表"}</button></form>`,
   );
 }
 async function action(a, v) {
@@ -685,6 +685,7 @@ document.addEventListener("submit", (e) => {
         id: f.dataset.id || crypto.randomUUID(),
         name: data.name,
         title: data.title,
+        unit: data.unit || "",
         officeId: data.officeId,
         pool: data.pool,
         notifyEmail: data.notifyEmail || "",

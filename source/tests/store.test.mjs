@@ -23,7 +23,7 @@ test("current Taichung schedule and administrative TOBY pool", async (t) => {
   );
   assert.equal(
     rows.find((s) => s.id === "taichung_2026-09-08_1400_general").interviewer,
-    "台中處長",
+    "中一處 黃岳澤",
   );
   assert.ok(
     rows.every(
@@ -37,7 +37,7 @@ test("renaming a director updates interviewer on weekly sessions", async (t) => 
   await f.store.saveStaff(
     {
       directors: staff.value.directors.map((d) =>
-        d.id === "taichung-general" ? { ...d, name: "王處長" } : d,
+        d.id === "zhong-1" ? { ...d, name: "王處長" } : d,
       ),
       assignments: staff.value.assignments,
       revision: staff.revision,
@@ -47,7 +47,7 @@ test("renaming a director updates interviewer on weekly sessions", async (t) => 
   const rows = await f.store.listSessions();
   assert.equal(
     rows.find((s) => s.id === "taichung_2026-09-08_1400_general").interviewer,
-    "王處長",
+    "中一處 王處長",
   );
 });
 test("five shared general seats and five separate administrative seats", async (t) => {

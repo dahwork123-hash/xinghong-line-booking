@@ -196,10 +196,13 @@ export function validateDirectors(list) {
     );
     const notifyLine = String(d.notifyLine || "").trim();
     invariant(notifyLine.length <= 80, "INVALID_DIRECTOR");
+    const unit = String(d.unit || "").trim();
+    invariant(unit.length <= 20 && !/[\u0000-\u001f\u007f]/.test(unit), "INVALID_DIRECTOR");
     return {
       id,
       name,
       title,
+      unit,
       officeId: d.officeId,
       pool: d.pool,
       notifyEmail,
@@ -235,12 +238,16 @@ export function validateAssignments(map, directors, rules) {
       }
   return out;
 }
+export function interviewerLabel(dir) {
+  if (!dir) return "";
+  return [dir.unit, dir.name].filter(Boolean).join(" ");
+}
 export function interviewerFor(directors, assignments, officeId, pool, date, time) {
   const key = slotKey(officeId, pool, String(weekday(date)), time);
   const dir =
     directors.find((d) => d.id === assignments[key]) ||
     directors.find((d) => d.officeId === officeId && d.pool === pool);
-  return dir?.name || (pool === "admin" ? "TOBY" : "");
+  return interviewerLabel(dir) || (pool === "admin" ? "TOBY" : "");
 }
 export function validateTemplate(key, text) {
   const t = seed.templates.find((t) => t.key === key);
