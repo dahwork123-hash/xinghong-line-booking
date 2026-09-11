@@ -1,0 +1,22 @@
+name: line-remind
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send day-before interview reminders
+        env:
+          SECRET: ${{ secrets.XINGHONG_LINE_CRON_SECRET }}
+        run: |
+          if [ -z "$SECRET" ]; then
+            echo "Set GitHub secret XINGHONG_LINE_CRON_SECRET to enable automatic reminders."
+            exit 0
+          fi
+          curl -fsS -X POST \
+            -H "x-cron-secret: $SECRET" \
+            https://xpbownhiedurytlyqszu.supabase.co/functions/v1/line-remind

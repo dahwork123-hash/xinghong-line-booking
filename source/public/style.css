@@ -569,6 +569,46 @@ dialog h2 {
   font-size: 11px;
   opacity: 0.92;
 }
+.line-card {
+  background: white;
+  border: 1px solid #d7e5dc;
+  border-radius: 16px;
+  padding: 16px;
+}
+.line-card h2,
+.line-card h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+.line-card h3 {
+  margin-top: 16px;
+  font-size: 15px;
+}
+.line-copy {
+  white-space: pre-wrap;
+  background: #f3faf6;
+  border: 1px solid #d7e5dc;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #1f4633;
+  overflow: auto;
+}
+.line-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 10px 0 4px;
+}
+.remind-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+.remind-list small {
+  display: block;
+}
 .week-switch {
   display: flex;
   gap: 8px;
