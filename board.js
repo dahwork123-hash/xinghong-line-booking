@@ -3,7 +3,7 @@ import {
   composeOffer,
   composeConfirm,
   composeReminder,
-  parseTimeReply,
+  buildLineReply,
   TAICHUNG_OFFICE,
 } from "./source/src/chat-offer.js";
 
@@ -352,7 +352,7 @@ function render() {
       const b = activeBooking(c.id);
       const when = b ? `${b.interview_date} ${b.start_time}–${b.end_time}` : "尚未安排";
       const lineMeta = [c.line_name, c.line_user_id].filter(Boolean).join(" · ");
-      return `<tr><td><strong>${esc(c.name)}</strong><small>${esc(c.phone || "未填電話")}</small>${lineMeta ? `<small>LINE ${esc(lineMeta)}</small>` : ""}</td><td>${esc(c.job)}<small>${esc(c.apply_city)} · ${esc(c.source)}</small></td><td>${esc(when)}<small>${esc(b?.director_label || "")}${b?.booked_via === "line" ? " · LINE自動預約" : ""}</small></td><td>${b ? `<button data-act="cancel-booking" data-id="${esc(b.id)}">取消此時段</button>` : `<button class="primary" data-act="pick-slot" data-id="${esc(c.id)}">安排時段</button>`}<button data-act="edit-candidate" data-id="${esc(c.id)}">改資料</button></td></tr>`;
+      return `<tr><td><strong>${esc(c.name)}</strong><small>${esc(c.phone || "未填電話")}</small>${lineMeta ? `<small>LINE ${esc(lineMeta)}</small>` : ""}${c.line_mode === "human" ? `<small class="human-flag">人工接手中，機器人已停</small>` : ""}</td><td>${esc(c.job)}<small>${esc(c.apply_city)} · ${esc(c.source)}</small></td><td>${esc(when)}<small>${esc(b?.director_label || "")}${b?.booked_via === "line" ? " · LINE自動預約" : ""}</small></td><td>${b ? `<button data-act="cancel-booking" data-id="${esc(b.id)}">取消此時段</button>` : `<button class="primary" data-act="pick-slot" data-id="${esc(c.id)}">安排時段</button>`}${c.line_mode === "human" && c.line_user_id ? `<button data-act="resume-auto" data-id="${esc(c.line_user_id)}">恢復自動</button>` : ""}<button data-act="edit-candidate" data-id="${esc(c.id)}">改資料</button></td></tr>`;
     })
     .join("");
   const weekLabel = dateForDay(weekOffset, 1) + " ～ " + dateForDay(weekOffset, 7);
@@ -363,7 +363,7 @@ function render() {
         `<li><strong>${esc(item.line_name || item.name)}</strong> ${esc(item.start_time)}–${esc(item.end_time)}<small>LINE名稱 ${esc(item.line_name || "未填")} · User ID ${esc(item.line_user_id || "尚無")}${item.reminder_sent_at ? " · 已提醒" : ""}</small></li>`,
     )
     .join("");
-  const lineBox = `<div class="line-card"><h2>自動回 LINE 的訊息</h2><p>時段跟上面時間表同步。求職者回「禮拜一下午2點」就會記下 LINE 名稱與 User ID，並自動回地址；面試前一天再提醒一次。</p><pre class="line-copy">${esc(offer)}</pre><div class="line-actions"><button class="primary" data-act="copy-offer">複製約訪訊息</button><button data-act="copy-confirm">複製地址回覆</button><button data-act="sim-reply">模擬求職者回覆</button></div>${remindRows ? `<h3>明天要提醒</h3><pre class="line-copy">${esc(composeReminder(reminders[0].interview_date, reminders[0].start_time, TAICHUNG_OFFICE))}</pre><ul class="remind-list">${remindRows}</ul>` : `<p class="hint-card">明天沒有已排定的面試，因此不會發提醒。</p>`}<p class="hint-card">LINE Webhook：https://xpbownhiedurytlyqszu.supabase.co/functions/v1/line-webhook</p></div>`;
+  const lineBox = `<div class="line-card"><h2>自動回 LINE 的訊息</h2><p>時間表跟上面格子同步。求職者可以回「禮拜一下午2點」，或用圖文選單：預約面試／我的預約／常見問題／聯絡同仁。也可以先回職務、縣市、電話。開場前 1 小時截止，含今天共 14 天。轉人工後機器人會停，這裡按「恢復自動」。面試前一天再提醒一次。</p><pre class="line-copy">${esc(offer)}</pre><div class="line-actions"><button class="primary" data-act="copy-offer">複製約訪訊息</button><button data-act="copy-confirm">複製地址回覆</button><button data-act="sim-reply">模擬求職者回覆</button></div>${remindRows ? `<h3>明天要提醒</h3><pre class="line-copy">${esc(composeReminder(reminders[0].interview_date, reminders[0].start_time, TAICHUNG_OFFICE))}</pre><ul class="remind-list">${remindRows}</ul>` : `<p class="hint-card">明天沒有已排定的面試，因此不會發提醒。</p>`}<p class="hint-card">LINE Webhook：https://xpbownhiedurytlyqszu.supabase.co/functions/v1/line-webhook</p></div>`;
   $("#app").innerHTML = `<div class="studio"><div class="studio-hero"><h1>面試者與面試時間</h1><p>把處長拉進格子指定誰面試；改時段後，LINE 約訪訊息會一起變。</p></div><div class="week-toolbar"><div class="week-switch"><button data-act="week" data-id="${weekOffset - 1}">上一週</button><strong>${esc(weekLabel)}</strong><button data-act="week" data-id="${weekOffset + 1}">下一週</button></div><label>這個組每場最多幾人<input id="cap" type="number" min="1" max="99" value="${r.capacity}"></label></div>${renderSlotGrid(r)}${lineBox}<div class="candidate-panel"><div class="candidate-toolbar"><h2>面試者</h2><button class="primary" data-act="add-candidate">＋ 新增面試者</button><small>${candidates.length} 人 · 已安排 ${bookings.filter((b) => b.interview_date >= taipeiToday()).length} 場</small></div>${candidates.length ? `<table class="candidate-table"><thead><tr><th>姓名／LINE</th><th>職缺</th><th>面試時間</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : `<p>還沒有面試者。求職者在 LINE 回時間後會出現在這裡，也可以按「新增面試者」手動填。</p>`}</div><div class="people-grid">${people}<button class="person-add" data-act="add-dir">＋ 新增處長或主管</button></div><div class="studio-foot"><button class="primary" data-act="save">儲存時間表</button><button data-act="reset">回復預設時段</button><small>時間表與面試者都在雲端，LINE 回覆會用這份時段。</small></div></div>`;
 }
 
@@ -396,7 +396,7 @@ function candidateForm(c) {
 
 function simReplyForm() {
   modal(
-    `<h2>模擬求職者回覆</h2><p>用來確認「禮拜一下午2點」會被記成哪一場。接上 LINE 機器人後，這一步是自動的。</p><form id="sim-form"><label>LINE 名稱<input name="line_name" maxlength="80" required placeholder="例如：小美"></label><label>LINE User ID<input name="line_user_id" maxlength="80" required placeholder="Uxxxxxxxx"></label><label>對方回覆<textarea name="text" maxlength="500" required>您好，禮拜一下午2點可以，謝謝</textarea></label><button class="primary">記錄這個時段</button></form>`,
+    `<h2>模擬求職者回覆</h2><p>可測自然語句，也可測「預約面試／我的預約／常見問題／聯絡同仁／取消預約」。</p><form id="sim-form"><label>LINE 名稱<input name="line_name" maxlength="80" required placeholder="例如：小美"></label><label>LINE User ID<input name="line_user_id" maxlength="80" required placeholder="Uxxxxxxxx"></label><label>對方回覆<textarea name="text" maxlength="500" required>您好，禮拜一下午2點可以，謝謝</textarea></label><button class="primary">送出這則回覆</button></form>`,
   );
 }
 
@@ -510,6 +510,15 @@ document.addEventListener("click", (e) => {
     return;
   }
   if (a === "sim-reply") return simReplyForm();
+  if (a === "resume-auto") {
+    guarded(async () => {
+      await rpc("xinghong_set_line_mode", { p_line_user_id: v, p_mode: "auto", p_line_name: "" });
+      await loadCloud();
+      toast("已恢復自動回覆。");
+      render();
+    });
+    return;
+  }
   if (a === "remove-slot") {
     const r = board.rules[board.officeIndex],
       [day, time] = v.split("|");
@@ -671,31 +680,60 @@ document.addEventListener("submit", (e) => {
     });
   }
   if (f.id === "sim-form") {
-    const picked = parseTimeReply(data.text, {
+    const current = bookings.find((b) => {
+      const c = candidates.find((x) => x.line_user_id === data.line_user_id);
+      return c && b.candidate_id === c.id && b.interview_date >= taipeiToday();
+    });
+    const person = candidates.find((c) => c.line_user_id === data.line_user_id);
+    const result = buildLineReply({
+      text: data.text,
       today: taipeiToday(),
       nowHm: taipeiNowHm(),
       isoWeekdays: weekdays(),
+      booking: current || null,
+      humanMode: person?.line_mode === "human",
     });
-    if (!picked.ok) {
-      toast("對不到時段，請改成例如：禮拜一下午2點。");
+    if (result.silent) {
+      toast("這位求職者正在人工接手，機器人不會回。請先按恢復自動。");
       return;
     }
-    const r = board.rules[board.officeIndex];
-    const dir = directorForDayTime(picked.isoDay, picked.start);
     guarded(async () => {
-      await rpc("xinghong_line_book", {
-        p_line_user_id: data.line_user_id,
-        p_line_name: data.line_name,
-        p_date: picked.date,
-        p_start: picked.start,
-        p_end: picked.end,
-        p_director_id: dir?.id || "",
-        p_director_label: directorLabel(dir?.id || ""),
-        p_capacity: r.capacity,
-      });
+      for (const action of result.actions || []) {
+        if (action.type === "human") {
+          await rpc("xinghong_set_line_mode", {
+            p_line_user_id: data.line_user_id,
+            p_mode: "human",
+            p_line_name: data.line_name,
+          });
+        }
+        if (action.type === "cancel") await rpc("xinghong_cancel_by_line", { p_line_user_id: data.line_user_id });
+        if (action.type === "touch") {
+          await rpc("xinghong_touch_line", {
+            p_line_user_id: data.line_user_id,
+            p_line_name: data.line_name,
+            p_job: action.job || null,
+            p_apply_city: action.city || null,
+            p_phone: action.phone || null,
+          });
+        }
+        if (action.type === "book") {
+          const r = board.rules[board.officeIndex];
+          const dir = directorForDayTime(action.picked.isoDay, action.picked.start);
+          await rpc("xinghong_line_book", {
+            p_line_user_id: data.line_user_id,
+            p_line_name: data.line_name,
+            p_date: action.picked.date,
+            p_start: action.picked.start,
+            p_end: action.picked.end,
+            p_director_id: dir?.id || "",
+            p_director_label: directorLabel(dir?.id || ""),
+            p_capacity: r.capacity,
+          });
+        }
+      }
       await loadCloud();
       $("#dialog").close();
-      toast(`已記下 ${data.line_name}：${picked.date} ${picked.start}–${picked.end}。回覆會帶地址。`);
+      toast(result.text.split("\n")[0] || "已處理這則回覆。");
       render();
     });
   }

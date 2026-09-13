@@ -1,14 +1,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
-  alreadyBookedText,
-  composeConfirm,
+  buildLineReply,
   composeOffer,
   DEFAULT_TAICHUNG_WEEK,
-  looksLikeOfferRequest,
   parseSlotTime,
-  parseTimeReply,
   TAICHUNG_OFFICE,
-  unclearTimeHelp,
 } from "./chat-offer.js";
 
 const encoder = new TextEncoder();
@@ -86,7 +82,7 @@ function directorFor(schedule, isoDay, start) {
 }
 
 async function lineReply(token, replyToken, text) {
-  if (!replyToken) return;
+  if (!replyToken || !text) return;
   await fetch("https://api.line.me/v2/bot/message/reply", {
     method: "POST",
     headers: {
@@ -109,44 +105,70 @@ async function lineName(token, userId) {
   return String(data.displayName || "");
 }
 
+async function applyActions(sb, schedule, userId, displayName, result) {
+  for (const action of result.actions || []) {
+    if (action.type === "human") {
+      await sb.rpc("xinghong_set_line_mode", {
+        p_line_user_id: userId,
+        p_mode: "human",
+        p_line_name: displayName,
+      });
+    }
+    if (action.type === "cancel") {
+      await sb.rpc("xinghong_cancel_by_line", { p_line_user_id: userId });
+    }
+    if (action.type === "touch") {
+      await sb.rpc("xinghong_touch_line", {
+        p_line_user_id: userId,
+        p_line_name: displayName,
+        p_job: action.job || null,
+        p_apply_city: action.city || null,
+        p_phone: action.phone || null,
+      });
+    }
+    if (action.type === "book") {
+      const picked = action.picked;
+      const meta = directorFor(schedule, picked.isoDay, picked.start);
+      const { error } = await sb.rpc("xinghong_line_book", {
+        p_line_user_id: userId,
+        p_line_name: displayName,
+        p_date: picked.date,
+        p_start: picked.start,
+        p_end: picked.end || meta.end,
+        p_director_id: meta.id,
+        p_director_label: meta.label,
+        p_capacity: meta.capacity,
+      });
+      if (error) {
+        const msg = String(error.message || error);
+        if (msg.includes("SLOT_FULL")) {
+          result.text = "這個時段的線上預約名額已滿，請選其他方便的時段，謝謝您！";
+        } else {
+          result.text = "這個時段現在無法預約，請改選其他時間，或回「聯絡同仁」。";
+        }
+      }
+    }
+  }
+}
+
 async function replyForText(sb, token, userId, displayName, text) {
   const { data: board } = await sb.rpc("xinghong_board");
   const schedule = board?.schedule || {};
   const isoWeekdays = schedule?.rules?.[0]?.isoWeekdays || DEFAULT_TAICHUNG_WEEK;
-  const offer = composeOffer(isoWeekdays, TAICHUNG_OFFICE);
-  const picked = parseTimeReply(text, {
+  const candidate = (board?.candidates || []).find((c) => c.line_user_id === userId);
+  const current = (board?.bookings || []).find((b) => b.candidate_id === candidate?.id);
+  const result = buildLineReply({
+    text,
     today: taipeiToday(),
     nowHm: taipeiNowHm(),
     isoWeekdays,
+    office: TAICHUNG_OFFICE,
+    booking: current || null,
+    humanMode: candidate?.line_mode === "human",
   });
-  const candidate = (board?.candidates || []).find((c) => c.line_user_id === userId);
-  const current = (board?.bookings || []).find((b) => b.candidate_id === candidate?.id);
-
-  if (picked.ok) {
-    const meta = directorFor(schedule, picked.isoDay, picked.start);
-    const { error } = await sb.rpc("xinghong_line_book", {
-      p_line_user_id: userId,
-      p_line_name: displayName,
-      p_date: picked.date,
-      p_start: picked.start,
-      p_end: picked.end || meta.end,
-      p_director_id: meta.id,
-      p_director_label: meta.label,
-      p_capacity: meta.capacity,
-    });
-    if (error) {
-      const msg = String(error.message || error);
-      if (msg.includes("SLOT_FULL")) return "這個時段的線上預約名額已滿，請選其他方便的時段，謝謝您！";
-      return unclearTimeHelp();
-    }
-    return composeConfirm(TAICHUNG_OFFICE);
-  }
-
-  if (current && looksLikeOfferRequest(text)) {
-    return alreadyBookedText(current.interview_date, current.start_time, TAICHUNG_OFFICE);
-  }
-  if (looksLikeOfferRequest(text)) return offer;
-  return unclearTimeHelp() + "\n\n" + offer;
+  if (result.silent) return "";
+  await applyActions(sb, schedule, userId, displayName, result);
+  return result.text;
 }
 
 Deno.serve(async (req) => {

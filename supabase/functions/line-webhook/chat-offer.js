@@ -57,7 +57,7 @@ export function parseSlotTime(value) {
   return { start: m[1], end: m[3] || addMinutes(m[1], 120) };
 }
 
-function addMinutes(hhmm, minutes) {
+export function addMinutes(hhmm, minutes) {
   const [h, m] = String(hhmm).split(":").map(Number);
   const t = (((h * 60 + m + minutes) % 1440) + 1440) % 1440;
   return (
@@ -65,6 +65,14 @@ function addMinutes(hhmm, minutes) {
     ":" +
     String(t % 60).padStart(2, "0")
   );
+}
+
+export function isBookable(date, start, today, nowHm) {
+  if (!date || !start || !today) return false;
+  if (date < today) return false;
+  if (date > addDays(today, 13)) return false;
+  if (date === today && nowHm && nowHm >= addMinutes(start, -60)) return false;
+  return true;
 }
 
 export function zhClock(hhmm) {
@@ -173,7 +181,7 @@ function upcomingDate(isoDay, today, start, nowHm) {
   let delta = isoDay - weekday(today);
   if (delta < 0) delta += 7;
   let date = addDays(today, delta);
-  if (delta === 0 && nowHm && start && start <= nowHm) date = addDays(today, 7);
+  if (delta === 0 && !isBookable(date, start, today, nowHm)) date = addDays(today, 7);
   return date;
 }
 
@@ -255,4 +263,116 @@ export function alreadyBookedText(date, start, office = TAICHUNG_OFFICE) {
     `地點：${office.address}`,
     "若要改時間，請直接回覆新的時段，例如：禮拜一下午2點。",
   ].join("\n");
+}
+
+export const FAQ_TEXTS = {
+  work: "您好，\n我們是政府合法委託社會住宅包租代管業者，致力於推廣社會住宅政策\n服務過程不收仲介費服務費，都是由政府經費撥款\n\n工作內容\n1.社會住宅推廣解說\n2.協助民眾辦理社會住宅相關補助\n3.評估房屋市場行情\n4.協助客戶處理糾紛\n5.電話拜訪客戶了解客戶案例\n\n現場會有面試主管向您說明",
+  salary: "您好，我們有底薪制(儲備培訓)、高獎金論件計酬及兼職，現場會有面試主管向您說明\n0900-1800，周休二日 見紅休",
+  office: "您好，我們面試和上課，統一在北屯文心路，之後上班可以選就近的辦公室。",
+  nantou: "目前面試統一在台中/彰化，之後辦公可以在草屯辦公室",
+};
+
+export function composeFaqMenu() {
+  return [
+    "您好，請問想了解哪一項？",
+    "請回：工作內容、薪資與工時、台中辦公室、南投辦公室",
+    "也可以直接回面試時段，例如：禮拜一下午2點。",
+    "其他問題請回「聯絡同仁」。",
+  ].join("\n");
+}
+
+export function composeHuman() {
+  return "好的，這個問題由招募同仁協助您，請稍候。";
+}
+
+export function composeMine(booking, office = TAICHUNG_OFFICE) {
+  if (!booking) {
+    return "目前沒有尚未開始的有效預約。\n要預約請回「預約面試」，或直接回例如：禮拜一下午2點。";
+  }
+  return [
+    alreadyBookedText(booking.interview_date || booking.date, booking.start_time || booking.start, office),
+    "若要取消，請回「取消預約」。",
+  ].join("\n");
+}
+
+export function composeOfferGuide(isoWeekdays = DEFAULT_TAICHUNG_WEEK, office = TAICHUNG_OFFICE) {
+  return [
+    composeOffer(isoWeekdays, office),
+    "",
+    "也可以先回職務：社宅顧問 或 儲備主管。",
+    "圖文選單：預約面試／我的預約／常見問題／聯絡同仁。",
+  ].join("\n");
+}
+
+export function classifyLineText(text) {
+  const t = String(text || "").replace(/\s+/g, "");
+  if (!t || /^(預約面試|開始預約|面試預約|預約)$/.test(t)) return { kind: "offer" };
+  if (/^(我的預約|查詢預約)$/.test(t)) return { kind: "mine" };
+  if (/^(常見問題)$/.test(t)) return { kind: "faq" };
+  if (/^(工作內容)$/.test(t)) return { kind: "faq-work" };
+  if (/^(薪資與工時|薪資|工時)$/.test(t)) return { kind: "faq-salary" };
+  if (/^(台中辦公室)$/.test(t)) return { kind: "faq-office" };
+  if (/^(南投辦公室)$/.test(t)) return { kind: "faq-nantou" };
+  if (/^(聯絡同仁|轉人工)$/.test(t)) return { kind: "human" };
+  if (/^(取消預約|不能來了)$/.test(t)) return { kind: "cancel" };
+  if (t === "社宅顧問" || t === "儲備主管") return { kind: "job", value: t };
+  if (["新竹", "台中", "彰化", "嘉義", "南投"].includes(t)) return { kind: "city", value: t };
+  if (/^0\d{8,12}$/.test(t)) return { kind: "phone", value: t };
+  return { kind: "chat" };
+}
+
+export function buildLineReply({
+  text,
+  today,
+  nowHm = "00:00",
+  isoWeekdays = DEFAULT_TAICHUNG_WEEK,
+  office = TAICHUNG_OFFICE,
+  booking = null,
+  humanMode = false,
+} = {}) {
+  if (humanMode) return { text: "", silent: true, actions: [] };
+
+  const intent = classifyLineText(text);
+  const offer = () => composeOfferGuide(isoWeekdays, office);
+
+  if (intent.kind === "offer") {
+    return { text: booking ? composeMine(booking, office) : offer(), actions: [] };
+  }
+  if (intent.kind === "mine") return { text: composeMine(booking, office), actions: [] };
+  if (intent.kind === "faq") return { text: composeFaqMenu(), actions: [] };
+  if (intent.kind === "faq-work") return { text: FAQ_TEXTS.work, actions: [] };
+  if (intent.kind === "faq-salary") return { text: FAQ_TEXTS.salary, actions: [] };
+  if (intent.kind === "faq-office") return { text: FAQ_TEXTS.office, actions: [] };
+  if (intent.kind === "faq-nantou") return { text: FAQ_TEXTS.nantou, actions: [] };
+  if (intent.kind === "human") return { text: composeHuman(), actions: [{ type: "human" }] };
+  if (intent.kind === "cancel") {
+    if (!booking) return { text: composeMine(null, office), actions: [] };
+    return { text: "已幫您取消這次面試。若要再約，直接回新的時段即可。", actions: [{ type: "cancel" }] };
+  }
+  if (intent.kind === "job") {
+    return {
+      text: `好的，已記下應徵${intent.value}。請回應徵縣市：新竹、台中、彰化、嘉義或南投。也可以直接回面試時段。`,
+      actions: [{ type: "touch", job: intent.value }],
+    };
+  }
+  if (intent.kind === "city") {
+    return {
+      text: `好的，應徵地是${intent.value}。方便的話請留手機，或直接回面試時段，例如：禮拜一下午2點。`,
+      actions: [{ type: "touch", city: intent.value }],
+    };
+  }
+  if (intent.kind === "phone") {
+    return { text: "好的，已記下電話。\n\n" + offer(), actions: [{ type: "touch", phone: intent.value }] };
+  }
+
+  const picked = parseTimeReply(text, { today, nowHm, isoWeekdays });
+  if (picked.ok) {
+    if (!isBookable(picked.date, picked.start, today, nowHm)) {
+      return { text: "目前只開放含今天共14天、且開場前1小時可預約。請改選其他時段。\n\n" + offer(), actions: [] };
+    }
+    return { text: composeConfirm(office), actions: [{ type: "book", picked }] };
+  }
+  if (booking && looksLikeOfferRequest(text)) return { text: composeMine(booking, office), actions: [] };
+  if (looksLikeOfferRequest(text)) return { text: offer(), actions: [] };
+  return { text: unclearTimeHelp() + "\n\n" + offer(), actions: [] };
 }

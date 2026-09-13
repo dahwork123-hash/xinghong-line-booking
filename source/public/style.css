@@ -736,6 +736,10 @@ body.is-dragging * {
   display: block;
   color: #7a8f82;
 }
+.human-flag {
+  color: #9a3412 !important;
+  font-weight: 700;
+}
 .slot-chip .count {
   display: block;
   font-size: 11px;
