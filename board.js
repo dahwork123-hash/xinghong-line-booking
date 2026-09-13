@@ -108,6 +108,7 @@ const defaults = () => {
     rules: structuredClone(seed.rules),
     assignments,
     officeIndex: 0,
+    slotHours: 2,
   };
 };
 
@@ -162,8 +163,167 @@ async function loadCloud() {
   }
 }
 
+const HOURS = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"];
+let selectedDir = null;
+let drag = null;
+let justDragged = false;
+
+function minutesOf(hhmm) {
+  const [h, m] = String(hhmm).split(":").map(Number);
+  return h * 60 + m;
+}
+
 function weekdays() {
   return board.rules[board.officeIndex]?.isoWeekdays || {};
+}
+
+function slotSpan(time) {
+  const p = parseRange(time);
+  return Math.max(1, Math.round((minutesOf(p.end) - minutesOf(p.start)) / 60));
+}
+
+function clampEnd(start, hours) {
+  let end = addMinutes(start, hours * 60);
+  if (end > "18:00") end = "18:00";
+  return end > start ? end : "";
+}
+
+function slotConflict(day, start, end, ignoreTime) {
+  const r = board.rules[board.officeIndex];
+  return (r.isoWeekdays[day] || []).some((time) => {
+    if (time === ignoreTime) return false;
+    const p = parseRange(time);
+    return p.start < end && start < p.end;
+  });
+}
+
+function assignDirectorToCell(day, hour, directorId) {
+  const r = board.rules[board.officeIndex];
+  const dir = board.directors.find((d) => d.id === directorId);
+  if (!dir) return;
+  const covering = (r.isoWeekdays[day] || []).find((time) => {
+    const p = parseRange(time);
+    return p.start <= hour && hour < p.end;
+  });
+  if (covering) {
+    board.assignments[slotKey(r.officeId, r.pool, day, covering)] = dir.id;
+    persist();
+    render();
+    toast(`${dir.name} 改排在星期${DAY[day]} ${rangeLabel(covering)}。`);
+    return;
+  }
+  const hours = board.slotHours === 1 ? 1 : 2;
+  const end = clampEnd(hour, hours);
+  if (!end) {
+    toast("這個鐘點無法再加時段。");
+    return;
+  }
+  if (slotConflict(day, hour, end)) {
+    toast("此時段跟已有的格子重疊，請改拉到空白格。");
+    return;
+  }
+  const time = rangeToken(hour, end);
+  r.isoWeekdays[day] = [...(r.isoWeekdays[day] || []), time].sort();
+  board.assignments[slotKey(r.officeId, r.pool, day, time)] = dir.id;
+  persist();
+  render();
+  toast(`${dir.name} 已排進星期${DAY[day]} ${hour}–${end}。`);
+}
+
+function relocateSlot(fromDay, fromTime, toDay, toHour) {
+  const r = board.rules[board.officeIndex];
+  const p = parseRange(fromTime);
+  if (fromDay === toDay && p.start === toHour) return;
+  const covering = (r.isoWeekdays[toDay] || []).find((time) => {
+    const q = parseRange(time);
+    return q.start <= toHour && toHour < q.end;
+  });
+  const dirId = board.assignments[slotKey(r.officeId, r.pool, fromDay, fromTime)];
+  if (covering) {
+    if (dirId) assignDirectorToCell(toDay, toHour, dirId);
+    return;
+  }
+  const end = clampEnd(toHour, slotSpan(fromTime));
+  if (!end) {
+    toast("這個鐘點無法再放時段。");
+    return;
+  }
+  if (slotConflict(toDay, toHour, end, fromDay === toDay ? fromTime : "")) {
+    toast("此時段跟已有的格子重疊，請改拉到空白格。");
+    return;
+  }
+  r.isoWeekdays[fromDay] = (r.isoWeekdays[fromDay] || []).filter((t) => t !== fromTime);
+  delete board.assignments[slotKey(r.officeId, r.pool, fromDay, fromTime)];
+  const next = rangeToken(toHour, end);
+  r.isoWeekdays[toDay] = [...(r.isoWeekdays[toDay] || []), next].sort();
+  if (dirId) board.assignments[slotKey(r.officeId, r.pool, toDay, next)] = dirId;
+  persist();
+  render();
+  const dir = board.directors.find((d) => d.id === dirId);
+  toast(`${dir?.name || "此時段"} 已改到星期${DAY[toDay]} ${toHour}–${end}。`);
+}
+
+function resizeSlot(day, time) {
+  const r = board.rules[board.officeIndex];
+  const p = parseRange(time);
+  const nextHours = slotSpan(time) <= 1 ? 2 : 1;
+  const end = clampEnd(p.start, nextHours);
+  if (!end) {
+    toast("無法再加長這個時段。");
+    return;
+  }
+  if (slotConflict(day, p.start, end, time)) {
+    toast("加長後會跟隔壁時段重疊。");
+    return;
+  }
+  const next = rangeToken(p.start, end);
+  r.isoWeekdays[day] = (r.isoWeekdays[day] || []).map((t) => (t === time ? next : t)).sort();
+  const key = slotKey(r.officeId, r.pool, day, time);
+  const dirId = board.assignments[key];
+  delete board.assignments[key];
+  if (dirId) board.assignments[slotKey(r.officeId, r.pool, day, next)] = dirId;
+  persist();
+  render();
+}
+
+function renderSlotGrid(r) {
+  const heads =
+    `<div class="grid-corner"></div>` +
+    [1, 2, 3, 4, 5, 6, 7]
+      .map((d) => `<div class="grid-head">星期${DAY[d]}<small>${dateForDay(weekOffset, d).slice(5)}</small></div>`)
+      .join("");
+  const body = HOURS.map((hour, i) => {
+    const cells = [1, 2, 3, 4, 5, 6, 7]
+      .map((day) => {
+        const started = (r.isoWeekdays[day] || []).find((t) => parseRange(t).start === hour);
+        if (started) {
+          const span = slotSpan(started);
+          const start = parseRange(started).start;
+          const dir =
+            board.directors.find((d) => d.id === board.assignments[slotKey(r.officeId, r.pool, day, started)]) ||
+            group(r)[0];
+          const seated = slotBookings(dateForDay(weekOffset, day), start);
+          const names = seated.map((b) => candidates.find((c) => c.id === b.candidate_id)?.name || "面試者").join("、");
+          return `<div class="grid-fill" data-drop-cell="${day}|${hour}" data-slot-time="${esc(started)}" data-act="open-slot" data-id="${day}|${esc(started)}" style="grid-column:${day + 1};grid-row:${i + 2} / span ${span};background:${color(dir?.id || "x")}"><button type="button" class="grid-x" data-act="remove-slot" data-id="${day}|${esc(started)}" aria-label="移除時段">×</button><b>${esc(dir?.name || "尚未指定")}</b><small>${esc([dir?.unit, rangeLabel(started)].filter(Boolean).join(" · "))}</small><span class="count">${seated.length}/${r.capacity}${names ? " · " + esc(names) : ""}</span><button type="button" class="grid-len" data-act="slot-len" data-id="${day}|${esc(started)}">${span <= 1 ? "改2小時" : "改1小時"}</button></div>`;
+        }
+        const covered = (r.isoWeekdays[day] || []).some((t) => {
+          const p = parseRange(t);
+          return p.start < hour && hour < p.end;
+        });
+        if (covered) return "";
+        return `<button type="button" class="grid-cell" data-act="place-slot" data-drop-cell="${day}|${hour}" data-id="${day}|${hour}" style="grid-column:${day + 1};grid-row:${i + 2}" aria-label="星期${DAY[day]} ${hour}"></button>`;
+      })
+      .join("");
+    return `<div class="grid-hour" style="grid-column:1;grid-row:${i + 2}">${esc(hour)}</div>${cells}`;
+  }).join("");
+  const tray = group(r)
+    .map(
+      (d) =>
+        `<button type="button" class="drag-chip${selectedDir === d.id ? " selected" : ""}" data-act="pick-dir" data-id="${esc(d.id)}" data-drag-dir="${esc(d.id)}" style="background:${color(d.id)}">${esc(d.unit || d.title)} ${esc(d.name)}</button>`,
+    )
+    .join("");
+  const hours = board.slotHours === 1 ? 1 : 2;
+  return `<div class="director-tray"><div class="tray-row">${tray}</div><div class="len-switch"><span>拉進去的新時段</span><button type="button" data-act="slot-hours" data-id="1" class="${hours === 1 ? "active" : ""}">1小時</button><button type="button" data-act="slot-hours" data-id="2" class="${hours === 2 ? "active" : ""}">2小時</button></div><p>把處長拉進格子，或先點姓名再點格子。那個時段就由他面試。已排的格子可改 1／2 小時；沒在選處長時，點格子可排面試者。</p></div><div class="slot-grid-wrap"><div class="slot-grid">${heads}${body}</div></div>`;
 }
 
 function directorForDayTime(day, start) {
@@ -187,20 +347,6 @@ function render() {
       (d) => `<article class="person-card"><div class="person-top"><span class="avatar" style="background:${color(d.id)}">${esc(d.name.slice(0, 1))}</span><div><strong>${esc(d.name)}</strong><span class="meta">${esc(d.unit || d.title)} · ${esc(OFFICES[d.officeId])} · ${d.pool === "admin" ? "行政" : "一般職缺"}</span></div></div><div class="notify">${d.notifyEmail || d.notifyLine ? esc([d.notifyEmail, d.notifyLine].filter(Boolean).join(" · ")) : "還沒填通知方式"}</div><div class="actions"><button data-act="edit-dir" data-id="${esc(d.id)}">改姓名／通知</button></div></article>`,
     )
     .join("");
-  const chips = (day) => {
-    const date = dateForDay(weekOffset, day);
-    return (r.isoWeekdays[day] || [])
-      .map((time) => {
-        const start = parseRange(time).start;
-        const dir =
-          board.directors.find((d) => d.id === board.assignments[slotKey(r.officeId, r.pool, day, time)]) ||
-          group(r)[0];
-        const seated = slotBookings(date, start);
-        const names = seated.map((b) => candidates.find((c) => c.id === b.candidate_id)?.name || "面試者").join("、");
-        return `<button class="slot-chip" data-act="open-slot" data-id="${day}|${time}" style="background:${color(dir?.id || "x")}"><b>${esc(rangeLabel(time))}</b><small>${esc([dir?.unit, dir?.name].filter(Boolean).join(" ") || "尚未指定")}</small><span class="count">${seated.length}/${r.capacity}${names ? " · " + esc(names) : ""}</span></button>`;
-      })
-      .join("");
-  };
   const rows = candidates
     .map((c) => {
       const b = activeBooking(c.id);
@@ -218,7 +364,7 @@ function render() {
     )
     .join("");
   const lineBox = `<div class="line-card"><h2>自動回 LINE 的訊息</h2><p>時段跟上面時間表同步。求職者回「禮拜一下午2點」就會記下 LINE 名稱與 User ID，並自動回地址；面試前一天再提醒一次。</p><pre class="line-copy">${esc(offer)}</pre><div class="line-actions"><button class="primary" data-act="copy-offer">複製約訪訊息</button><button data-act="copy-confirm">複製地址回覆</button><button data-act="sim-reply">模擬求職者回覆</button></div>${remindRows ? `<h3>明天要提醒</h3><pre class="line-copy">${esc(composeReminder(reminders[0].interview_date, reminders[0].start_time, TAICHUNG_OFFICE))}</pre><ul class="remind-list">${remindRows}</ul>` : `<p class="hint-card">明天沒有已排定的面試，因此不會發提醒。</p>`}<p class="hint-card">LINE Webhook：https://xpbownhiedurytlyqszu.supabase.co/functions/v1/line-webhook</p></div>`;
-  $("#app").innerHTML = `<div class="studio"><div class="studio-hero"><h1>面試者與面試時間</h1><p>上面改時段，LINE 約訪訊息會一起變。求職者回時間後會進下面名單。</p></div><div class="week-toolbar"><div class="week-switch"><button data-act="week" data-id="${weekOffset - 1}">上一週</button><strong>${esc(weekLabel)}</strong><button data-act="week" data-id="${weekOffset + 1}">下一週</button></div><label>這個組每場最多幾人<input id="cap" type="number" min="1" max="99" value="${r.capacity}"></label></div><p class="hint-card">台中一般職缺。點時段可指定處長，也可把面試者排進那一場。</p><div class="week-board">${[1, 2, 3, 4, 5, 6, 7].map((d) => `<section class="day-col"><h3>星期${DAY[d]}<small>${dateForDay(weekOffset, d).slice(5)}</small></h3>${chips(d)}<button class="ghost-add" data-act="add-slot" data-id="${d}">＋ 加時段</button></section>`).join("")}</div>${lineBox}<div class="candidate-panel"><div class="candidate-toolbar"><h2>面試者</h2><button class="primary" data-act="add-candidate">＋ 新增面試者</button><small>${candidates.length} 人 · 已安排 ${bookings.filter((b) => b.interview_date >= taipeiToday()).length} 場</small></div>${candidates.length ? `<table class="candidate-table"><thead><tr><th>姓名／LINE</th><th>職缺</th><th>面試時間</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : `<p>還沒有面試者。求職者在 LINE 回時間後會出現在這裡，也可以按「新增面試者」手動填。</p>`}</div><div class="people-grid">${people}<button class="person-add" data-act="add-dir">＋ 新增處長或主管</button></div><div class="studio-foot"><button class="primary" data-act="save">儲存時間表</button><button data-act="reset">回復預設時段</button><small>時間表與面試者都在雲端，LINE 回覆會用這份時段。</small></div></div>`;
+  $("#app").innerHTML = `<div class="studio"><div class="studio-hero"><h1>面試者與面試時間</h1><p>把處長拉進格子指定誰面試；改時段後，LINE 約訪訊息會一起變。</p></div><div class="week-toolbar"><div class="week-switch"><button data-act="week" data-id="${weekOffset - 1}">上一週</button><strong>${esc(weekLabel)}</strong><button data-act="week" data-id="${weekOffset + 1}">下一週</button></div><label>這個組每場最多幾人<input id="cap" type="number" min="1" max="99" value="${r.capacity}"></label></div>${renderSlotGrid(r)}${lineBox}<div class="candidate-panel"><div class="candidate-toolbar"><h2>面試者</h2><button class="primary" data-act="add-candidate">＋ 新增面試者</button><small>${candidates.length} 人 · 已安排 ${bookings.filter((b) => b.interview_date >= taipeiToday()).length} 場</small></div>${candidates.length ? `<table class="candidate-table"><thead><tr><th>姓名／LINE</th><th>職缺</th><th>面試時間</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : `<p>還沒有面試者。求職者在 LINE 回時間後會出現在這裡，也可以按「新增面試者」手動填。</p>`}</div><div class="people-grid">${people}<button class="person-add" data-act="add-dir">＋ 新增處長或主管</button></div><div class="studio-foot"><button class="primary" data-act="save">儲存時間表</button><button data-act="reset">回復預設時段</button><small>時間表與面試者都在雲端，LINE 回覆會用這份時段。</small></div></div>`;
 }
 
 function modal(html) {
@@ -295,6 +441,12 @@ function pickSlot(candidateId) {
 }
 
 document.addEventListener("click", (e) => {
+  if (justDragged) {
+    justDragged = false;
+    e.preventDefault();
+    e.stopPropagation();
+    return;
+  }
   const b = e.target.closest("[data-act]");
   if (!b) return;
   const a = b.dataset.act,
@@ -306,6 +458,33 @@ document.addEventListener("click", (e) => {
   }
   if (a === "add-dir") return dirForm();
   if (a === "edit-dir") return dirForm(board.directors.find((d) => d.id === v));
+  if (a === "pick-dir") {
+    selectedDir = selectedDir === v ? null : v;
+    const dir = board.directors.find((d) => d.id === selectedDir);
+    toast(dir ? `已選${dir.name}，再點格子或拉進格子。` : "已取消選取。");
+    render();
+    return;
+  }
+  if (a === "place-slot") {
+    if (!selectedDir) {
+      toast("先點上面的處長姓名，再點要面試的格子。");
+      return;
+    }
+    const [day, hour] = v.split("|");
+    assignDirectorToCell(Number(day), hour, selectedDir);
+    return;
+  }
+  if (a === "slot-hours") {
+    board.slotHours = Number(v) === 1 ? 1 : 2;
+    persist(true);
+    render();
+    return;
+  }
+  if (a === "slot-len") {
+    const [day, time] = v.split("|");
+    resizeSlot(Number(day), time);
+    return;
+  }
   if (a === "add-slot") return slotForm(Number(v));
   if (a === "edit-slot") {
     const [day, time] = v.split("|");
@@ -313,6 +492,10 @@ document.addEventListener("click", (e) => {
   }
   if (a === "open-slot") {
     const [day, time] = v.split("|");
+    if (selectedDir) {
+      assignDirectorToCell(Number(day), parseRange(time).start, selectedDir);
+      return;
+    }
     return openSlot(Number(day), time);
   }
   if (a === "add-candidate") return candidateForm();
@@ -332,7 +515,7 @@ document.addEventListener("click", (e) => {
       [day, time] = v.split("|");
     r.isoWeekdays[day] = (r.isoWeekdays[day] || []).filter((t) => t !== time);
     delete board.assignments[slotKey(r.officeId, r.pool, day, time)];
-    $("#dialog").close();
+    if ($("#dialog").open) $("#dialog").close();
     persist();
     render();
     return;
@@ -516,6 +699,122 @@ document.addEventListener("submit", (e) => {
       render();
     });
   }
+});
+
+function clearDropOver() {
+  document.querySelectorAll(".over").forEach((el) => el.classList.remove("over"));
+}
+
+function dropCellAt(x, y) {
+  const ghost = document.querySelector(".drag-ghost");
+  if (ghost) ghost.style.visibility = "hidden";
+  const el = document.elementFromPoint(x, y);
+  if (ghost) ghost.style.visibility = "visible";
+  return el?.closest("[data-drop-cell]") || null;
+}
+
+function endDrag() {
+  document.querySelectorAll(".dragging").forEach((el) => el.classList.remove("dragging"));
+  document.querySelector(".drag-ghost")?.remove();
+  document.body.classList.remove("is-dragging");
+  clearDropOver();
+  drag = null;
+}
+
+function beginDrag(e, source) {
+  if (source.ghost) return;
+  source.ghost = document.createElement("div");
+  source.ghost.className = "drag-ghost";
+  source.ghost.textContent = source.label;
+  source.ghost.style.background = source.color;
+  document.body.appendChild(source.ghost);
+  source.chip.classList.add("dragging");
+  document.body.classList.add("is-dragging");
+  try {
+    source.chip.setPointerCapture(e.pointerId);
+  } catch {}
+}
+
+function updateDrag(e) {
+  if (!drag) return;
+  const moved = Math.hypot(e.clientX - drag.x, e.clientY - drag.y);
+  if (!drag.ghost && moved < 8) return;
+  if (!drag.ghost) beginDrag(e, drag);
+  drag.ghost.style.left = e.clientX + "px";
+  drag.ghost.style.top = e.clientY + "px";
+  clearDropOver();
+  dropCellAt(e.clientX, e.clientY)?.classList.add("over");
+}
+
+function startDragFrom(e) {
+  if (drag || e.button !== 0) return;
+  if (e.target.closest(".grid-x, .grid-len")) return;
+  const chip = e.target.closest("[data-drag-dir]");
+  if (chip) {
+    const dir = board.directors.find((d) => d.id === chip.dataset.dragDir);
+    drag = {
+      kind: "chip",
+      dirId: chip.dataset.dragDir,
+      label: (dir?.unit || dir?.title || "") + " " + (dir?.name || ""),
+      color: color(chip.dataset.dragDir),
+      chip,
+      x: e.clientX,
+      y: e.clientY,
+      ghost: null,
+    };
+    return;
+  }
+  const fill = e.target.closest(".grid-fill[data-drop-cell]");
+  if (!fill) return;
+  const [day, hour] = fill.dataset.dropCell.split("|");
+  const time = fill.dataset.slotTime || hour;
+  const dirId = board.assignments[slotKey(board.rules[board.officeIndex].officeId, board.rules[board.officeIndex].pool, day, time)];
+  const dir = board.directors.find((d) => d.id === dirId);
+  drag = {
+    kind: "slot",
+    day: Number(day),
+    time,
+    dirId,
+    label: dir?.name || "此時段",
+    color: color(dirId || "x"),
+    chip: fill,
+    x: e.clientX,
+    y: e.clientY,
+    ghost: null,
+  };
+}
+
+function finishDrag(e) {
+  if (!drag) return;
+  const source = drag;
+  const didDrag = Boolean(source.ghost);
+  const cell = didDrag ? dropCellAt(e.clientX, e.clientY) : null;
+  endDrag();
+  if (!didDrag) return;
+  justDragged = true;
+  setTimeout(() => {
+    justDragged = false;
+  }, 80);
+  if (!cell) return;
+  const [day, hour] = cell.dataset.dropCell.split("|");
+  if (source.kind === "slot") relocateSlot(source.day, source.time, Number(day), hour);
+  else assignDirectorToCell(Number(day), hour, source.dirId);
+}
+
+document.addEventListener("pointerdown", startDragFrom);
+document.addEventListener("mousedown", startDragFrom);
+document.addEventListener("pointermove", (e) => {
+  if (!drag) return;
+  if (e.pointerType === "touch") e.preventDefault();
+  updateDrag(e);
+}, { passive: false });
+document.addEventListener("mousemove", (e) => {
+  if (drag) updateDrag(e);
+});
+document.addEventListener("pointerup", finishDrag);
+document.addEventListener("mouseup", finishDrag);
+document.addEventListener("pointercancel", () => {
+  if (drag) endDrag();
 });
 
 $("#dialog-close").onclick = () => $("#dialog").close();
