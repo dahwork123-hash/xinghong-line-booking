@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>星鴻面試預約 · 處長與時間</title>
-    <link rel="stylesheet" href="source/public/style.css?v=combine1" />
+    <link rel="stylesheet" href="source/public/style.css?v=combine2" />
     <style>
       body {
         background:
@@ -74,12 +74,20 @@
       <p id="toast" class="hint-card">
         面試者資料存在雲端。這一頁可以直接看名單、排時段。
       </p>
-      <div id="app"></div>
+      <div id="app"><p class="hint-card">正在載入時間表…</p></div>
     </div>
     <dialog id="dialog">
       <div id="dialog-body"></div>
       <button id="dialog-close" style="margin-top: 14px">關閉</button>
     </dialog>
-    <script type="module" src="board.js?v=combine1"></script>
+    <script type="module">
+      import("./board.js?v=combine2").catch((err) => {
+        const toast = document.getElementById("toast");
+        const app = document.getElementById("app");
+        const msg = "畫面載入失敗，請按 Ctrl+F5 重新整理。" + (err && err.message ? " " + err.message : "");
+        if (toast) toast.textContent = msg;
+        if (app) app.innerHTML = "<p class=\"hint-card\">" + msg + "</p>";
+      });
+    </script>
   </body>
 </html>

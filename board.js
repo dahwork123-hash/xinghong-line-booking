@@ -5,7 +5,7 @@ import {
   composeReminder,
   buildLineReply,
   TAICHUNG_OFFICE,
-} from "./source/src/chat-offer.js";
+} from "./source/src/chat-offer.js?v=combine2";
 
 const DAY = ["", "一", "二", "三", "四", "五", "六", "日"];
 const OFFICES = { taichung: "台中", changhua: "彰化", chiayi: "嘉義", hsinchu: "新竹" };
@@ -855,7 +855,11 @@ document.addEventListener("pointercancel", () => {
   if (drag) endDrag();
 });
 
-$("#dialog-close").onclick = () => $("#dialog").close();
+if ($("#dialog-close")) $("#dialog-close").onclick = () => $("#dialog").close();
 
-render();
-loadCloud().then(render);
+try {
+  render();
+  loadCloud().then(render).catch((err) => toast("讀取雲端失敗：" + rpcError(err)));
+} catch (err) {
+  toast("畫面載入失敗，請按 Ctrl+F5：" + rpcError(err));
+}
