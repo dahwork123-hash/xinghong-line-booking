@@ -92,4 +92,10 @@ test("combines rich-menu commands with natural-language booking", () => {
   assert.equal(book.actions[0].picked.start, "14:00");
   const paused = buildLineReply({ text: "預約面試", today: "2026-09-13", humanMode: true });
   assert.equal(paused.silent, true);
+  const custom = buildLineReply({
+    text: "預約面試",
+    today: "2026-09-13",
+    customOffer: "自訂約訪文案",
+  });
+  assert.equal(custom.text, "自訂約訪文案");
 });

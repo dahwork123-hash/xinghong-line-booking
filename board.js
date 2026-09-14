@@ -5,7 +5,7 @@ import {
   composeReminder,
   buildLineReply,
   TAICHUNG_OFFICE,
-} from "./source/src/chat-offer.js?v=combine2";
+} from "./source/src/chat-offer.js?v=combine3";
 
 const DAY = ["", "一", "二", "三", "四", "五", "六", "日"];
 const OFFICES = { taichung: "台中", changhua: "彰化", chiayi: "嘉義", hsinchu: "新竹" };
@@ -125,7 +125,13 @@ let weekOffset = 0;
 
 const persist = (quiet) => {
   localStorage.setItem(KEY, JSON.stringify(board));
-  if (!quiet) toast("時間表已更新。LINE 約訪訊息會跟這份時段走。");
+  if (!quiet) {
+    toast(
+      String(board.lineOffer || "").trim()
+        ? "時間表已更新。約訪文案仍用你改過的版本。"
+        : "時間表已更新。LINE 約訪訊息會跟這份時段走。",
+    );
+  }
   guarded(async () => {
     await rpc("xinghong_save_schedule", { p_value: board });
   });
@@ -175,6 +181,9 @@ function minutesOf(hhmm) {
 
 function weekdays() {
   return board.rules[board.officeIndex]?.isoWeekdays || {};
+}
+function offerText() {
+  return String(board.lineOffer || "").trim() || composeOffer(weekdays(), TAICHUNG_OFFICE);
 }
 
 function slotSpan(time) {
@@ -356,15 +365,15 @@ function render() {
     })
     .join("");
   const weekLabel = dateForDay(weekOffset, 1) + " ～ " + dateForDay(weekOffset, 7);
-  const offer = composeOffer(weekdays(), TAICHUNG_OFFICE);
+  const offer = offerText();
   const remindRows = (reminders || [])
     .map(
       (item) =>
         `<li><strong>${esc(item.line_name || item.name)}</strong> ${esc(item.start_time)}–${esc(item.end_time)}<small>LINE名稱 ${esc(item.line_name || "未填")} · User ID ${esc(item.line_user_id || "尚無")}${item.reminder_sent_at ? " · 已提醒" : ""}</small></li>`,
     )
     .join("");
-  const lineBox = `<div class="line-card"><h2>自動回 LINE 的訊息</h2><p>時間表跟上面格子同步。求職者可以回「禮拜一下午2點」，或用圖文選單：預約面試／我的預約／常見問題／聯絡同仁。也可以先回職務、縣市、電話。開場前 1 小時截止，含今天共 14 天。轉人工後機器人會停，這裡按「恢復自動」。面試前一天再提醒一次。</p><pre class="line-copy">${esc(offer)}</pre><div class="line-actions"><button class="primary" data-act="copy-offer">複製約訪訊息</button><button data-act="copy-confirm">複製地址回覆</button><button data-act="sim-reply">模擬求職者回覆</button></div>${remindRows ? `<h3>明天要提醒</h3><pre class="line-copy">${esc(composeReminder(reminders[0].interview_date, reminders[0].start_time, TAICHUNG_OFFICE))}</pre><ul class="remind-list">${remindRows}</ul>` : `<p class="hint-card">明天沒有已排定的面試，因此不會發提醒。</p>`}<p class="hint-card">LINE Webhook：https://xpbownhiedurytlyqszu.supabase.co/functions/v1/line-webhook</p></div>`;
-  $("#app").innerHTML = `<div class="studio"><div class="studio-hero"><h1>面試者與面試時間</h1><p>把處長拉進格子指定誰面試；改時段後，LINE 約訪訊息會一起變。</p></div><div class="week-toolbar"><div class="week-switch"><button data-act="week" data-id="${weekOffset - 1}">上一週</button><strong>${esc(weekLabel)}</strong><button data-act="week" data-id="${weekOffset + 1}">下一週</button></div><label>這個組每場最多幾人<input id="cap" type="number" min="1" max="99" value="${r.capacity}"></label></div>${renderSlotGrid(r)}${lineBox}<div class="candidate-panel"><div class="candidate-toolbar"><h2>面試者</h2><button class="primary" data-act="add-candidate">＋ 新增面試者</button><small>${candidates.length} 人 · 已安排 ${bookings.filter((b) => b.interview_date >= taipeiToday()).length} 場</small></div>${candidates.length ? `<table class="candidate-table"><thead><tr><th>姓名／LINE</th><th>職缺</th><th>面試時間</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : `<p>還沒有面試者。求職者在 LINE 回時間後會出現在這裡，也可以按「新增面試者」手動填。</p>`}</div><div class="people-grid">${people}<button class="person-add" data-act="add-dir">＋ 新增處長或主管</button></div><div class="studio-foot"><button class="primary" data-act="save">儲存時間表</button><button data-act="reset">回復預設時段</button><small>時間表與面試者都在雲端，LINE 回覆會用這份時段。</small></div></div>`;
+  const lineBox = `<div class="line-card"><h2>自動回 LINE 的訊息</h2><p>求職者回「預約面試」時會看到下面這段。可以直接改文字；改完按「儲存約訪文案」。要跟上面格子同步時，再按「從時間表重新產生」。</p><textarea id="line-offer" class="line-copy" maxlength="4900">${esc(offer)}</textarea><div class="line-actions"><button class="primary" data-act="save-offer">儲存約訪文案</button><button data-act="reset-offer">從時間表重新產生</button><button data-act="copy-offer">複製約訪訊息</button><button data-act="copy-confirm">複製地址回覆</button><button data-act="sim-reply">模擬求職者回覆</button></div>${remindRows ? `<h3>明天要提醒</h3><pre class="line-copy">${esc(composeReminder(reminders[0].interview_date, reminders[0].start_time, TAICHUNG_OFFICE))}</pre><ul class="remind-list">${remindRows}</ul>` : `<p class="hint-card">明天沒有已排定的面試，因此不會發提醒。</p>`}<p class="hint-card">LINE Webhook：https://xpbownhiedurytlyqszu.supabase.co/functions/v1/line-webhook</p></div>`;
+  $("#app").innerHTML = `<div class="studio"><div class="studio-hero"><h1>面試者與面試時間</h1><p>把處長拉進格子指定誰面試。約訪文案可在下面手動改，存檔後 LINE 會用那一段。</p></div><div class="week-toolbar"><div class="week-switch"><button data-act="week" data-id="${weekOffset - 1}">上一週</button><strong>${esc(weekLabel)}</strong><button data-act="week" data-id="${weekOffset + 1}">下一週</button></div><label>這個組每場最多幾人<input id="cap" type="number" min="1" max="99" value="${r.capacity}"></label></div>${renderSlotGrid(r)}${lineBox}<div class="candidate-panel"><div class="candidate-toolbar"><h2>面試者</h2><button class="primary" data-act="add-candidate">＋ 新增面試者</button><small>${candidates.length} 人 · 已安排 ${bookings.filter((b) => b.interview_date >= taipeiToday()).length} 場</small></div>${candidates.length ? `<table class="candidate-table"><thead><tr><th>姓名／LINE</th><th>職缺</th><th>面試時間</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : `<p>還沒有面試者。求職者在 LINE 回時間後會出現在這裡，也可以按「新增面試者」手動填。</p>`}</div><div class="people-grid">${people}<button class="person-add" data-act="add-dir">＋ 新增處長或主管</button></div><div class="studio-foot"><button class="primary" data-act="save">儲存時間表</button><button data-act="reset">回復預設時段</button><small>時間表與面試者都在雲端，LINE 回覆會用這份時段。</small></div></div>`;
 }
 
 function modal(html) {
@@ -502,7 +511,21 @@ document.addEventListener("click", (e) => {
   if (a === "edit-candidate") return candidateForm(candidates.find((c) => c.id === v));
   if (a === "pick-slot") return pickSlot(v);
   if (a === "copy-offer") {
-    copyText(composeOffer(weekdays(), TAICHUNG_OFFICE), "已複製約訪訊息。");
+    copyText(offerText(), "已複製約訪訊息。");
+    return;
+  }
+  if (a === "save-offer") {
+    const typed = ($("#line-offer")?.value || "").trim();
+    board.lineOffer = typed;
+    persist(true);
+    toast("約訪文案已存到雲端，求職者回「預約面試」會看到這段。");
+    return;
+  }
+  if (a === "reset-offer") {
+    board.lineOffer = "";
+    persist(true);
+    toast("已改回依時間表產生的約訪文案。");
+    render();
     return;
   }
   if (a === "copy-confirm") {
@@ -552,6 +575,9 @@ document.addEventListener("change", (e) => {
     board.rules[board.officeIndex].capacity = Number(e.target.value);
     persist(true);
   }
+});
+document.addEventListener("input", (e) => {
+  if (e.target.id === "line-offer") board.lineOffer = e.target.value;
 });
 
 function guarded(fn) {
@@ -692,6 +718,7 @@ document.addEventListener("submit", (e) => {
       isoWeekdays: weekdays(),
       booking: current || null,
       humanMode: person?.line_mode === "human",
+      customOffer: board.lineOffer,
     });
     if (result.silent) {
       toast("這位求職者正在人工接手，機器人不會回。請先按恢復自動。");

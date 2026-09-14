@@ -1,0 +1,7 @@
+project_id = "xpbownhiedurytlyqszu"
+
+[functions.line-webhook]
+verify_jwt = false
+
+[functions.line-remind]
+verify_jwt = false

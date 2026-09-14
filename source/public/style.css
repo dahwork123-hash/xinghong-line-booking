@@ -772,6 +772,13 @@ body.is-dragging * {
   color: #1f4633;
   overflow: auto;
 }
+textarea.line-copy {
+  display: block;
+  width: 100%;
+  min-height: 260px;
+  resize: vertical;
+  box-sizing: border-box;
+}
 .line-actions {
   display: flex;
   gap: 8px;

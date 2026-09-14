@@ -329,11 +329,12 @@ export function buildLineReply({
   office = TAICHUNG_OFFICE,
   booking = null,
   humanMode = false,
+  customOffer = "",
 } = {}) {
   if (humanMode) return { text: "", silent: true, actions: [] };
 
   const intent = classifyLineText(text);
-  const offer = () => composeOfferGuide(isoWeekdays, office);
+  const offer = () => String(customOffer || "").trim() || composeOfferGuide(isoWeekdays, office);
 
   if (intent.kind === "offer") {
     return { text: booking ? composeMine(booking, office) : offer(), actions: [] };

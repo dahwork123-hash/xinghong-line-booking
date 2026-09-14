@@ -1,12 +1,3 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
-import {
-  buildLineReply,
-  composeOffer,
-  DEFAULT_TAICHUNG_WEEK,
-  parseSlotTime,
-  TAICHUNG_OFFICE,
-} from "./chat-offer.js";
-
 const encoder = new TextEncoder();
 
 function bytesToB64(buf) {
@@ -54,15 +45,7 @@ function taipeiNowHm() {
     .slice(0, 5);
 }
 
-function supabaseAdmin() {
-  return createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-    { auth: { persistSession: false } },
-  );
-}
-
-function directorFor(schedule, isoDay, start) {
+function directorFor(schedule, isoDay, start, parseSlotTime) {
   const rule = schedule?.rules?.[0] || {};
   const directors = schedule?.directors || [];
   const assignments = schedule?.assignments || {};
@@ -105,7 +88,7 @@ async function lineName(token, userId) {
   return String(data.displayName || "");
 }
 
-async function applyActions(sb, schedule, userId, displayName, result) {
+async function applyActions(sb, schedule, userId, displayName, result, parseSlotTime) {
   for (const action of result.actions || []) {
     if (action.type === "human") {
       await sb.rpc("xinghong_set_line_mode", {
@@ -128,7 +111,7 @@ async function applyActions(sb, schedule, userId, displayName, result) {
     }
     if (action.type === "book") {
       const picked = action.picked;
-      const meta = directorFor(schedule, picked.isoDay, picked.start);
+      const meta = directorFor(schedule, picked.isoDay, picked.start, parseSlotTime);
       const { error } = await sb.rpc("xinghong_line_book", {
         p_line_user_id: userId,
         p_line_name: displayName,
@@ -151,32 +134,61 @@ async function applyActions(sb, schedule, userId, displayName, result) {
   }
 }
 
-async function replyForText(sb, token, userId, displayName, text) {
-  const { data: board } = await sb.rpc("xinghong_board");
-  const schedule = board?.schedule || {};
-  const isoWeekdays = schedule?.rules?.[0]?.isoWeekdays || DEFAULT_TAICHUNG_WEEK;
-  const candidate = (board?.candidates || []).find((c) => c.line_user_id === userId);
-  const current = (board?.bookings || []).find((b) => b.candidate_id === candidate?.id);
-  const result = buildLineReply({
-    text,
-    today: taipeiToday(),
-    nowHm: taipeiNowHm(),
-    isoWeekdays,
-    office: TAICHUNG_OFFICE,
-    booking: current || null,
-    humanMode: candidate?.line_mode === "human",
-  });
-  if (result.silent) return "";
-  await applyActions(sb, schedule, userId, displayName, result);
-  return result.text;
+async function handleEvents(token, events) {
+  const [{ createClient }, chat] = await Promise.all([
+    import("npm:@supabase/supabase-js@2"),
+    import("./chat-offer.js"),
+  ]);
+  const {
+    buildLineReply,
+    DEFAULT_TAICHUNG_WEEK,
+    parseSlotTime,
+    TAICHUNG_OFFICE,
+  } = chat;
+  const sb = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    { auth: { persistSession: false } },
+  );
+
+  for (const event of events) {
+    const userId = event.source?.userId;
+    const replyToken = event.replyToken;
+    if (!userId) continue;
+    if (event.type === "follow") continue;
+    if (event.type !== "message" || event.message?.type !== "text") continue;
+    const displayName = await lineName(token, userId);
+    const { data: board } = await sb.rpc("xinghong_board");
+    const schedule = board?.schedule || {};
+    const isoWeekdays = schedule?.rules?.[0]?.isoWeekdays || DEFAULT_TAICHUNG_WEEK;
+    const candidate = (board?.candidates || []).find((c) => c.line_user_id === userId);
+    const current = (board?.bookings || []).find((b) => b.candidate_id === candidate?.id);
+    const result = buildLineReply({
+      text: event.message.text || "",
+      today: taipeiToday(),
+      nowHm: taipeiNowHm(),
+      isoWeekdays,
+      office: TAICHUNG_OFFICE,
+      booking: current || null,
+      humanMode: candidate?.line_mode === "human",
+      customOffer: schedule?.lineOffer || "",
+    });
+    if (result.silent) continue;
+    await applyActions(sb, schedule, userId, displayName, result, parseSlotTime);
+    await lineReply(token, replyToken, result.text);
+  }
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "GET") return new Response("xinghong line webhook");
-  if (req.method !== "POST") return new Response("method not allowed", { status: 405 });
-
   const secret = Deno.env.get("LINE_CHANNEL_SECRET") || "";
   const token = Deno.env.get("LINE_CHANNEL_ACCESS_TOKEN") || "";
+  if (req.method === "GET") {
+    const ready = Boolean(secret && token);
+    return new Response(ready ? "xinghong line webhook ready" : "xinghong line webhook (secrets missing)", {
+      status: ready ? 200 : 503,
+    });
+  }
+  if (req.method !== "POST") return new Response("method not allowed", { status: 405 });
   if (!secret || !token) return new Response("LINE secrets missing", { status: 503 });
 
   const raw = await req.text();
@@ -192,22 +204,7 @@ Deno.serve(async (req) => {
     return new Response("bad request", { status: 400 });
   }
 
-  const sb = supabaseAdmin();
-  for (const event of body.events || []) {
-    const userId = event.source?.userId;
-    const replyToken = event.replyToken;
-    if (!userId) continue;
-    const displayName = await lineName(token, userId);
-    if (event.type === "follow") {
-      const { data: board } = await sb.rpc("xinghong_board");
-      const isoWeekdays = board?.schedule?.rules?.[0]?.isoWeekdays || DEFAULT_TAICHUNG_WEEK;
-      await lineReply(token, replyToken, composeOffer(isoWeekdays, TAICHUNG_OFFICE));
-      continue;
-    }
-    if (event.type === "message" && event.message?.type === "text") {
-      const text = await replyForText(sb, token, userId, displayName, event.message.text || "");
-      await lineReply(token, replyToken, text);
-    }
-  }
+  const events = body.events || [];
+  if (events.length) EdgeRuntime.waitUntil(handleEvents(token, events));
   return new Response("ok");
 });
