@@ -148,3 +148,14 @@ test("shows that city's slots after the applicant picks a city", () => {
   assert.match(taoyuan.text, /尚未排可預約時段/);
   assert.equal(taoyuan.actions[0].city, "桃園");
 });
+
+test("uses a staff-edited interview address for that city", () => {
+  const reply = buildLineReply({
+    text: "台中",
+    today: "2026-09-13",
+    schedule: {
+      officeDetails: { taichung: { address: "自訂面試地點123號" } },
+    },
+  });
+  assert.match(reply.text, /自訂面試地點123號/);
+});

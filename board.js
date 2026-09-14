@@ -1,13 +1,12 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 import {
   composeOffer,
-  composeConfirm,
   composeReminder,
-  buildLineReply,
+  applyOfficeDetails,
   officeForCity,
   OFFICES as INTERVIEW_OFFICES,
   DEFAULT_CITY_RULES,
-} from "./source/src/chat-offer.js?v=combine5";
+} from "./source/src/chat-offer.js?v=combine6";
 
 const DAY = ["", "一", "二", "三", "四", "五", "六", "日"];
 const OFFICES = { taichung: "台中", hsinchu: "新竹", taoyuan: "桃園", changhua: "彰化", chiayi: "嘉義", nantou: "南投" };
@@ -123,6 +122,9 @@ let candidates = [];
 let bookings = [];
 let reminders = [];
 let weekOffset = 0;
+let statsFrom = addDays(taipeiToday(), -29);
+let statsTo = taipeiToday();
+let stats = { people: 0, sessions: 0, days: [], cities: [] };
 
 function ensureCities(next) {
   const have = new Set((next.rules || []).map((r) => r.officeId));
@@ -137,6 +139,7 @@ function ensureCities(next) {
   next.rules.sort((a, b) => order.indexOf(a.officeId) - order.indexOf(b.officeId));
   if (next.officeIndex >= next.rules.length) next.officeIndex = 0;
   next.lineOffers = next.lineOffers || {};
+  next.officeDetails = next.officeDetails || {};
   return added;
 }
 
@@ -184,6 +187,7 @@ async function loadCloud() {
       await rpc("xinghong_save_schedule", { p_value: board });
     }
     reminders = (await rpc("xinghong_due_reminders")) || [];
+    await loadStats();
   } catch (e) {
     toast("讀取面試者失敗：" + rpcError(e));
   }
@@ -202,11 +206,21 @@ function minutesOf(hhmm) {
 function weekdays() {
   return board.rules[board.officeIndex]?.isoWeekdays || {};
 }
+async function loadStats() {
+  try {
+    stats = (await rpc("xinghong_interview_stats", { p_from: statsFrom, p_to: statsTo })) || stats;
+    if (stats?.from) statsFrom = stats.from;
+    if (stats?.to) statsTo = stats.to;
+  } catch (e) {
+    toast("讀取面試人數失敗：" + rpcError(e));
+  }
+}
+
 function currentOfficeId() {
   return board.rules[board.officeIndex]?.officeId || "taichung";
 }
 function currentOffice() {
-  return INTERVIEW_OFFICES[currentOfficeId()] || INTERVIEW_OFFICES.taichung;
+  return applyOfficeDetails(INTERVIEW_OFFICES[currentOfficeId()] || INTERVIEW_OFFICES.taichung, board);
 }
 function savedOfferText() {
   const id = currentOfficeId();
@@ -383,9 +397,19 @@ function directorForDayTime(day, start) {
   return directorForCityDayTime(currentOfficeId(), day, start);
 }
 
-async function copyText(text, ok) {
-  await navigator.clipboard.writeText(text);
-  toast(ok);
+function renderStats() {
+  const days = stats?.days || [];
+  const max = Math.max(1, ...days.map((d) => Number(d.people) || 0));
+  const bars = days
+    .map((d) => {
+      const n = Number(d.people) || 0;
+      return `<div class="stat-col" title="${esc(d.date)} ${n} 人"><span style="height:${Math.round((n / max) * 100)}%"></span><small>${esc(String(d.date).slice(5))}</small></div>`;
+    })
+    .join("");
+  const cities = (stats?.cities || [])
+    .map((c) => `<span>${esc(c.city)} ${Number(c.people) || 0}人</span>`)
+    .join("");
+  return `<div class="stat-card"><h2>面試人數</h2><div class="stat-range"><label>從<input id="stat-from" type="date" value="${esc(statsFrom)}"></label><label>到<input id="stat-to" type="date" value="${esc(statsTo)}"></label></div><div class="stats"><div>這段期間人數<strong>${Number(stats?.people) || 0}</strong></div><div>面試場次<strong>${Number(stats?.sessions) || 0}</strong></div><div>各縣市<small>${cities || "這段期間沒有有效預約"}</small></div></div><div class="stat-chart">${bars}</div><p class="hint-card">依面試日期計算目前還在的預約。取消後就不會算進去。</p></div>`;
 }
 
 function render() {
@@ -418,8 +442,9 @@ function render() {
         `<button type="button" class="${i === board.officeIndex ? "active" : ""}" data-act="office" data-id="${i}">${esc(OFFICES[rule.officeId] || rule.officeId)}</button>`,
     )
     .join("");
-  const lineBox = `<div class="line-card"><h2>自動回 LINE 的訊息</h2><p>求職者回「預約面試」會先問縣市，再看到下面這段「${esc(OFFICES[currentOfficeId()] || "")}」的約訪文案。可以直接改文字；改完按「儲存約訪文案」。要跟上面格子同步時，再按「從時間表重新產生」。</p><textarea id="line-offer" class="line-copy" maxlength="4900">${esc(offer)}</textarea><div class="line-actions"><button class="primary" data-act="save-offer">儲存約訪文案</button><button data-act="reset-offer">從時間表重新產生</button><button data-act="copy-offer">複製約訪訊息</button><button data-act="copy-confirm">複製地址回覆</button><button data-act="sim-reply">模擬求職者回覆</button></div>${remindRows ? `<h3>明天要提醒</h3><pre class="line-copy">${esc(composeReminder(reminders[0].interview_date, reminders[0].start_time, officeForCity(reminders[0].apply_city || "台中")))}</pre><ul class="remind-list">${remindRows}</ul>` : `<p class="hint-card">明天沒有已排定的面試，因此不會發提醒。</p>`}<p class="hint-card">LINE Webhook：https://xpbownhiedurytlyqszu.supabase.co/functions/v1/line-webhook</p></div>`;
-  $("#app").innerHTML = `<div class="studio"><div class="studio-hero"><h1>面試者與面試時間</h1><p>先選縣市，再把處長拉進格子。約訪文案可在下面手動改，存檔後 LINE 會用那一段。</p></div><div class="week-toolbar"><div class="office-pills">${officePills}</div><div class="week-switch"><button data-act="week" data-id="${weekOffset - 1}">上一週</button><strong>${esc(weekLabel)}</strong><button data-act="week" data-id="${weekOffset + 1}">下一週</button></div><label>這個組每場最多幾人<input id="cap" type="number" min="1" max="99" value="${r.capacity}"></label></div>${renderSlotGrid(r)}${lineBox}<div class="candidate-panel"><div class="candidate-toolbar"><h2>面試者</h2><button class="primary" data-act="add-candidate">＋ 新增面試者</button><small>${candidates.length} 人 · 已安排 ${bookings.filter((b) => b.interview_date >= taipeiToday()).length} 場</small></div>${candidates.length ? `<table class="candidate-table"><thead><tr><th>姓名／LINE</th><th>職缺</th><th>面試時間</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : `<p>還沒有面試者。求職者在 LINE 回時間後會出現在這裡，也可以按「新增面試者」手動填。</p>`}</div><div class="people-grid">${people}<button class="person-add" data-act="add-dir">＋ 新增處長或主管</button></div><div class="studio-foot"><button class="primary" data-act="save">儲存時間表</button><button data-act="reset">回復預設時段</button><small>時間表與面試者都在雲端，LINE 回覆會用這份時段。</small></div></div>`;
+  const office = currentOffice();
+  const lineBox = `<div class="line-card"><h2>自動回 LINE 的訊息</h2><label>面試地點<input id="office-address" maxlength="80" value="${esc(office.address)}" placeholder="例如：台中市北屯區文心路四段698號6樓之1"></label><label>上樓說明<input id="office-arrival" maxlength="160" value="${esc(office.arrival)}"></label><p>求職者回「預約面試」會先問縣市，再看到下面這段「${esc(OFFICES[currentOfficeId()] || "")}」的約訪文案。可以直接改文字；改完按「儲存約訪文案」。</p><textarea id="line-offer" class="line-copy" maxlength="4900">${esc(offer)}</textarea><div class="line-actions"><button class="primary" data-act="save-offer">儲存約訪文案</button></div>${remindRows ? `<h3>明天要提醒</h3><pre class="line-copy">${esc(composeReminder(reminders[0].interview_date, reminders[0].start_time, applyOfficeDetails(officeForCity(reminders[0].apply_city || "台中"), board)))}</pre><ul class="remind-list">${remindRows}</ul>` : `<p class="hint-card">明天沒有已排定的面試，因此不會發提醒。</p>`}</div>`;
+  $("#app").innerHTML = `<div class="studio"><div class="studio-hero"><h1>面試者與面試時間</h1><p>先選縣市，再把處長拉進格子。約訪文案與面試地點可在下面改，存檔後 LINE 會用那一段。</p></div>${renderStats()}<div class="week-toolbar"><div class="office-pills">${officePills}</div><div class="week-switch"><button data-act="week" data-id="${weekOffset - 1}">上一週</button><strong>${esc(weekLabel)}</strong><button data-act="week" data-id="${weekOffset + 1}">下一週</button></div><label>這個組每場最多幾人<input id="cap" type="number" min="1" max="99" value="${r.capacity}"></label></div>${renderSlotGrid(r)}${lineBox}<div class="candidate-panel"><div class="candidate-toolbar"><h2>面試者</h2><button class="primary" data-act="add-candidate">＋ 新增面試者</button><small>${candidates.length} 人 · 已安排 ${bookings.filter((b) => b.interview_date >= taipeiToday()).length} 場</small></div>${candidates.length ? `<table class="candidate-table"><thead><tr><th>姓名／LINE</th><th>職缺</th><th>面試時間</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : `<p>還沒有面試者。求職者在 LINE 回時間後會出現在這裡，也可以按「新增面試者」手動填。</p>`}</div><div class="people-grid">${people}<button class="person-add" data-act="add-dir">＋ 新增處長或主管</button></div><div class="studio-foot"><button class="primary" data-act="save">儲存時間表</button><button data-act="reset">回復預設時段</button><small>時間表與面試者都在雲端，LINE 回覆會用這份時段。</small></div></div>`;
 }
 
 function modal(html) {
@@ -446,12 +471,6 @@ function slotForm(day, time) {
 function candidateForm(c) {
   modal(
     `<h2>${c ? "修改面試者" : "新增面試者"}</h2><form id="candidate-form" data-id="${esc(c?.id || "")}"><label>姓名<input name="name" value="${esc(c?.name || "")}" maxlength="80" required></label><label>電話<input name="phone" value="${esc(c?.phone || "")}" maxlength="20" placeholder="09xxxxxxxx"></label><label>LINE 名稱<input name="line_name" value="${esc(c?.line_name || "")}" maxlength="80" placeholder="對方的 LINE 顯示名稱"></label><label>LINE User ID<input name="line_user_id" value="${esc(c?.line_user_id || "")}" maxlength="80" placeholder="接上機器人後會自動寫入"></label><label>應徵職務<select name="job">${JOBS.map((j) => `<option ${j === (c?.job || "社宅顧問") ? "selected" : ""}>${j}</option>`).join("")}</select></label><label>應徵縣市<select name="apply_city">${CITIES.map((j) => `<option ${j === (c?.apply_city || "台中") ? "selected" : ""}>${j}</option>`).join("")}</select></label><label>來源<select name="source">${SOURCES.map((j) => `<option ${j === (c?.source || "未知") ? "selected" : ""}>${j}</option>`).join("")}</select></label><label>備註<textarea name="notes" maxlength="500">${esc(c?.notes || "")}</textarea></label><button class="primary">存到雲端</button></form>`,
-  );
-}
-
-function simReplyForm() {
-  modal(
-    `<h2>模擬求職者回覆</h2><p>可測自然語句，也可測「預約面試／我的預約／常見問題／聯絡同仁／取消預約」。</p><form id="sim-form"><label>LINE 名稱<input name="line_name" maxlength="80" required placeholder="例如：小美"></label><label>LINE User ID<input name="line_user_id" maxlength="80" required placeholder="Uxxxxxxxx"></label><label>對方回覆<textarea name="text" maxlength="500" required>您好，禮拜一下午2點可以，謝謝</textarea></label><button class="primary">送出這則回覆</button></form>`,
   );
 }
 
@@ -563,10 +582,6 @@ document.addEventListener("click", (e) => {
   if (a === "add-candidate") return candidateForm();
   if (a === "edit-candidate") return candidateForm(candidates.find((c) => c.id === v));
   if (a === "pick-slot") return pickSlot(v);
-  if (a === "copy-offer") {
-    copyText(offerText(), "已複製約訪訊息。");
-    return;
-  }
   if (a === "save-offer") {
     const typed = ($("#line-offer")?.value || "").trim();
     const id = currentOfficeId();
@@ -577,21 +592,6 @@ document.addEventListener("click", (e) => {
     toast("約訪文案已存到雲端。求職者選這個縣市後會看到這段。");
     return;
   }
-  if (a === "reset-offer") {
-    const id = currentOfficeId();
-    board.lineOffers = board.lineOffers || {};
-    delete board.lineOffers[id];
-    if (id === "taichung") board.lineOffer = "";
-    persist(true);
-    toast("已改回依時間表產生的約訪文案。");
-    render();
-    return;
-  }
-  if (a === "copy-confirm") {
-    copyText(composeConfirm(currentOffice()), "已複製地址回覆。");
-    return;
-  }
-  if (a === "sim-reply") return simReplyForm();
   if (a === "resume-auto") {
     guarded(async () => {
       await rpc("xinghong_set_line_mode", { p_line_user_id: v, p_mode: "auto", p_line_name: "" });
@@ -613,7 +613,11 @@ document.addEventListener("click", (e) => {
   }
   if (a === "save") persist();
   if (a === "reset") {
+    const details = board.officeDetails;
+    const offers = board.lineOffers;
     board = defaults();
+    board.officeDetails = details || {};
+    board.lineOffers = offers || {};
     persist();
     toast("已回復預設時間表。");
     render();
@@ -634,6 +638,24 @@ document.addEventListener("change", (e) => {
     board.rules[board.officeIndex].capacity = Number(e.target.value);
     persist(true);
   }
+  if (e.target.id === "stat-from" || e.target.id === "stat-to") {
+    statsFrom = $("#stat-from")?.value || statsFrom;
+    statsTo = $("#stat-to")?.value || statsTo;
+    guarded(async () => {
+      await loadStats();
+      render();
+    });
+  }
+  if (e.target.id === "office-address" || e.target.id === "office-arrival") {
+    const id = currentOfficeId();
+    board.officeDetails = board.officeDetails || {};
+    board.officeDetails[id] = {
+      ...(board.officeDetails[id] || {}),
+      address: ($("#office-address")?.value || "").trim(),
+      arrival: ($("#office-arrival")?.value || "").trim(),
+    };
+    persist(true);
+  }
 });
 document.addEventListener("input", (e) => {
   if (e.target.id === "line-offer") {
@@ -641,6 +663,15 @@ document.addEventListener("input", (e) => {
     board.lineOffers = board.lineOffers || {};
     board.lineOffers[id] = e.target.value;
     if (id === "taichung") board.lineOffer = e.target.value;
+  }
+  if (e.target.id === "office-address" || e.target.id === "office-arrival") {
+    const id = currentOfficeId();
+    board.officeDetails = board.officeDetails || {};
+    board.officeDetails[id] = {
+      ...(board.officeDetails[id] || {}),
+      address: $("#office-address")?.value || "",
+      arrival: $("#office-arrival")?.value || "",
+    };
   }
 });
 
@@ -766,66 +797,6 @@ document.addEventListener("submit", (e) => {
       await loadCloud();
       $("#dialog").close();
       toast("已排進此時段。");
-      render();
-    });
-  }
-  if (f.id === "sim-form") {
-    const current = bookings.find((b) => {
-      const c = candidates.find((x) => x.line_user_id === data.line_user_id);
-      return c && b.candidate_id === c.id && b.interview_date >= taipeiToday();
-    });
-    const person = candidates.find((c) => c.line_user_id === data.line_user_id);
-    const result = buildLineReply({
-      text: data.text,
-      today: taipeiToday(),
-      nowHm: taipeiNowHm(),
-      schedule: board,
-      applyCity: person?.apply_city || "",
-      booking: current || null,
-      humanMode: person?.line_mode === "human",
-    });
-    if (result.silent) {
-      toast("這位求職者正在人工接手，機器人不會回。請先按恢復自動。");
-      return;
-    }
-    guarded(async () => {
-      for (const action of result.actions || []) {
-        if (action.type === "human") {
-          await rpc("xinghong_set_line_mode", {
-            p_line_user_id: data.line_user_id,
-            p_mode: "human",
-            p_line_name: data.line_name,
-          });
-        }
-        if (action.type === "cancel") await rpc("xinghong_cancel_by_line", { p_line_user_id: data.line_user_id });
-        if (action.type === "touch") {
-          await rpc("xinghong_touch_line", {
-            p_line_user_id: data.line_user_id,
-            p_line_name: data.line_name,
-            p_job: action.job || null,
-            p_apply_city: action.city || null,
-            p_phone: action.phone || null,
-          });
-        }
-        if (action.type === "book") {
-          const officeId = action.picked.officeId || officeForCity(person?.apply_city || "").id;
-          const r = board.rules.find((x) => x.officeId === officeId) || board.rules[board.officeIndex];
-          const dir = directorForCityDayTime(officeId, action.picked.isoDay, action.picked.start);
-          await rpc("xinghong_line_book", {
-            p_line_user_id: data.line_user_id,
-            p_line_name: data.line_name,
-            p_date: action.picked.date,
-            p_start: action.picked.start,
-            p_end: action.picked.end,
-            p_director_id: dir?.id || "",
-            p_director_label: directorLabel(dir?.id || ""),
-            p_capacity: r.capacity,
-          });
-        }
-      }
-      await loadCloud();
-      $("#dialog").close();
-      toast(result.text.split("\n")[0] || "已處理這則回覆。");
       render();
     });
   }

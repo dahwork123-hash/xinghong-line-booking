@@ -94,6 +94,17 @@ export function officeForCity(city) {
   return OFFICES[CITY_TO_OFFICE[city]] || OFFICES.taichung;
 }
 
+export function applyOfficeDetails(office, schedule) {
+  const base = office || TAICHUNG_OFFICE;
+  const extra = schedule?.officeDetails?.[base.id] || {};
+  return {
+    ...base,
+    label: String(extra.label || base.label || ""),
+    address: String(extra.address || base.address || ""),
+    arrival: String(extra.arrival || base.arrival || ""),
+  };
+}
+
 export function composeAskCity() {
   return "請問您要在哪個縣市面試？\n請回：" + CITIES.slice(0, -1).join("、") + "或" + CITIES.at(-1) + "。";
 }
@@ -404,7 +415,7 @@ function customOfferFor(office, schedule, fallback) {
 }
 
 function contextForCity(city, { schedule, isoWeekdays, office, customOffer } = {}) {
-  const chosen = city ? officeForCity(city) : office || TAICHUNG_OFFICE;
+  const chosen = applyOfficeDetails(city ? officeForCity(city) : office || TAICHUNG_OFFICE, schedule);
   const rule = ruleForCity(schedule, chosen.city);
   return {
     office: chosen,

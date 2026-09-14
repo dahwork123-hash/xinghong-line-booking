@@ -779,11 +779,82 @@ textarea.line-copy {
   resize: vertical;
   box-sizing: border-box;
 }
+.line-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: #3d5b48;
+}
 .line-actions {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
   margin: 10px 0 4px;
+}
+.stat-card {
+  background: white;
+  border: 1px solid #d7e5dc;
+  border-radius: 16px;
+  padding: 16px;
+}
+.stat-card h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+.stat-range {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.stat-range label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.stat-card .stats {
+  margin: 8px 0 12px;
+}
+.stat-card .stats small {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: 8px;
+  color: #3d5b48;
+}
+.stat-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 160px;
+  overflow-x: auto;
+  padding: 8px 0 0;
+  border-top: 1px solid #d7e5dc;
+}
+.stat-col {
+  flex: 1 0 18px;
+  min-width: 18px;
+  height: 140px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
+}
+.stat-col span {
+  width: 100%;
+  max-width: 22px;
+  background: #0f7a56;
+  border-radius: 4px 4px 0 0;
+  min-height: 0;
+}
+.stat-col small {
+  font-size: 10px;
+  color: #5f7a68;
+  writing-mode: horizontal-tb;
 }
 .remind-list {
   margin: 8px 0 0;
