@@ -736,6 +736,9 @@ body.is-dragging * {
   display: block;
   color: #7a8f82;
 }
+.candidate-table td:last-child button {
+  margin: 0 4px 4px 0;
+}
 .human-flag {
   color: #9a3412 !important;
   font-weight: 700;
