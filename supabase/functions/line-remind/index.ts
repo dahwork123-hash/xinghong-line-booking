@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { composeReminder, TAICHUNG_OFFICE } from "./chat-offer.js";
+import { composeReminder, officeForCity } from "./chat-offer.js";
 
 function timingEqual(a, b) {
   if (a.length !== b.length) return false;
@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
       skipped += 1;
       continue;
     }
-    const text = composeReminder(row.interview_date, row.start_time, TAICHUNG_OFFICE);
+    const text = composeReminder(row.interview_date, row.start_time, officeForCity(row.apply_city || "台中"));
     const ok = await push(token, row.line_user_id, text);
     if (ok) {
       await sb.rpc("xinghong_mark_reminded", { p_booking_id: row.id });

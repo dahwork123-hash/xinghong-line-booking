@@ -83,19 +83,68 @@ test("combines rich-menu commands with natural-language booking", () => {
   assert.equal(classifyLineText("聯絡同仁").kind, "human");
   const faq = buildLineReply({ text: "工作內容", today: "2026-09-13" });
   assert.match(faq.text, /社會住宅/);
-  const book = buildLineReply({
-    text: "您好，禮拜一下午2點可以，謝謝",
-    today: "2026-09-11",
-    nowHm: "22:00",
-  });
-  assert.equal(book.actions[0].type, "book");
-  assert.equal(book.actions[0].picked.start, "14:00");
   const paused = buildLineReply({ text: "預約面試", today: "2026-09-13", humanMode: true });
   assert.equal(paused.silent, true);
+  const ask = buildLineReply({ text: "預約面試", today: "2026-09-13" });
+  assert.match(ask.text, /哪個縣市/);
+  assert.equal(ask.actions.length, 0);
   const custom = buildLineReply({
-    text: "預約面試",
+    text: "台中",
     today: "2026-09-13",
     customOffer: "自訂約訪文案",
   });
   assert.equal(custom.text, "自訂約訪文案");
+  assert.equal(custom.actions[0].type, "touch");
+  assert.equal(custom.actions[0].city, "台中");
+});
+
+test("asks for city before booking a timeslot", () => {
+  const missing = buildLineReply({
+    text: "您好，禮拜一下午2點可以，謝謝",
+    today: "2026-09-11",
+    nowHm: "22:00",
+  });
+  assert.match(missing.text, /哪個縣市/);
+  assert.equal(missing.actions.length, 0);
+
+  const book = buildLineReply({
+    text: "您好，禮拜一下午2點可以，謝謝",
+    today: "2026-09-11",
+    nowHm: "22:00",
+    applyCity: "台中",
+  });
+  assert.equal(book.actions[0].type, "book");
+  assert.equal(book.actions[0].picked.start, "14:00");
+  assert.equal(book.actions[0].picked.officeId, "taichung");
+});
+
+test("shows that city's slots after the applicant picks a city", () => {
+  const chiayi = buildLineReply({
+    text: "嘉義",
+    today: "2026-09-13",
+    schedule: {
+      rules: [{ officeId: "chiayi", pool: "general", capacity: 5, isoWeekdays: { 3: ["16:00-18:00"], 4: ["16:00-18:00"] } }],
+    },
+  });
+  assert.match(chiayi.text, /禮拜三，下午4點/);
+  assert.match(chiayi.text, /上海路175號2樓/);
+  assert.doesNotMatch(chiayi.text, /禮拜一/);
+
+  const hsinchu = buildLineReply({
+    text: "禮拜四下午2點",
+    today: "2026-09-14",
+    nowHm: "10:00",
+    applyCity: "新竹",
+  });
+  assert.equal(hsinchu.actions[0].type, "book");
+  assert.equal(hsinchu.actions[0].picked.date, "2026-09-17");
+  assert.equal(hsinchu.actions[0].picked.officeId, "hsinchu");
+  assert.match(hsinchu.text, /光明五街342號2樓/);
+
+  const nantou = buildLineReply({ text: "南投", today: "2026-09-13" });
+  assert.match(nantou.text, /尚未排可預約時段/);
+
+  const taoyuan = buildLineReply({ text: "桃園", today: "2026-09-13" });
+  assert.match(taoyuan.text, /尚未排可預約時段/);
+  assert.equal(taoyuan.actions[0].city, "桃園");
 });

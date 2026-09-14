@@ -1,10 +1,67 @@
-export const TAICHUNG_OFFICE = {
-  id: "taichung",
-  label: "台中分公司",
-  address: "台中市北屯區文心路四段698號6樓之1",
-  arrival:
-    "來請直接上電梯六樓進辦公室，告知面試會先填寫履歷(請自備原子筆)，再由主管面試，如人數較多將採用團體面試。",
-  weather: "(如遇到國定假/颱風假會暫停面試，請再主動來訊預約)",
+const WEATHER = "(如遇到國定假/颱風假會暫停面試，請再主動來訊預約)";
+const ARRIVAL_RESUME =
+  "告知面試會先填寫履歷(請自備原子筆)，再由主管面試，如人數較多將採用團體面試。";
+
+export const OFFICES = {
+  taichung: {
+    id: "taichung",
+    city: "台中",
+    label: "台中分公司",
+    address: "台中市北屯區文心路四段698號6樓之1",
+    arrival: "來請直接上電梯六樓進辦公室，" + ARRIVAL_RESUME,
+    weather: WEATHER,
+  },
+  changhua: {
+    id: "changhua",
+    city: "彰化",
+    label: "彰化分公司",
+    address: "彰化市華山路37號11樓之4",
+    arrival: "來請直接上電梯11樓進辦公室，" + ARRIVAL_RESUME,
+    weather: WEATHER,
+  },
+  chiayi: {
+    id: "chiayi",
+    city: "嘉義",
+    label: "嘉義分公司",
+    address: "嘉義市西區上海路175號2樓",
+    arrival: "來請直接上走樓梯2樓右轉進辦公室，" + ARRIVAL_RESUME,
+    weather: WEATHER,
+  },
+  hsinchu: {
+    id: "hsinchu",
+    city: "新竹",
+    label: "新竹分公司",
+    address: "新竹縣竹北市光明五街342號2樓",
+    arrival: "來請直接上電梯二樓進辦公室，" + ARRIVAL_RESUME,
+    weather: WEATHER,
+  },
+  nantou: {
+    id: "nantou",
+    city: "南投",
+    label: "南投（草屯）",
+    address: "南投面試地點請依招募同仁通知",
+    arrival: "目前南投面試地點請依招募同仁通知。之後辦公可以在草屯辦公室。",
+    weather: WEATHER,
+  },
+  taoyuan: {
+    id: "taoyuan",
+    city: "桃園",
+    label: "桃園分公司",
+    address: "桃園面試地點請依招募同仁通知",
+    arrival: "目前桃園面試地點請依招募同仁通知。",
+    weather: WEATHER,
+  },
+};
+
+export const TAICHUNG_OFFICE = OFFICES.taichung;
+export const CITIES = ["新竹", "桃園", "台中", "彰化", "嘉義", "南投"];
+export const CITY_TO_OFFICE = {
+  新竹: "hsinchu",
+  桃園: "taoyuan",
+  台中: "taichung",
+  彰化: "changhua",
+  嘉義: "chiayi",
+  南投: "nantou",
 };
 
 export const DEFAULT_TAICHUNG_WEEK = {
@@ -14,6 +71,52 @@ export const DEFAULT_TAICHUNG_WEEK = {
   4: ["11:00-13:00", "14:00-16:00", "16:00-18:00"],
   5: ["14:00-16:00", "16:00-18:00"],
 };
+
+export const DEFAULT_CITY_WEEKS = {
+  taichung: DEFAULT_TAICHUNG_WEEK,
+  changhua: { 4: ["14:00-16:00"] },
+  chiayi: { 3: ["16:00-18:00"], 4: ["16:00-18:00"] },
+  hsinchu: { 2: ["14:00-16:00"], 4: ["14:00-16:00"] },
+  taoyuan: {},
+  nantou: {},
+};
+
+export const DEFAULT_CITY_RULES = [
+  { officeId: "taichung", pool: "general", capacity: 5, isoWeekdays: DEFAULT_TAICHUNG_WEEK },
+  { officeId: "hsinchu", pool: "general", capacity: 5, isoWeekdays: DEFAULT_CITY_WEEKS.hsinchu },
+  { officeId: "taoyuan", pool: "general", capacity: 5, isoWeekdays: DEFAULT_CITY_WEEKS.taoyuan },
+  { officeId: "changhua", pool: "general", capacity: 5, isoWeekdays: DEFAULT_CITY_WEEKS.changhua },
+  { officeId: "chiayi", pool: "general", capacity: 5, isoWeekdays: DEFAULT_CITY_WEEKS.chiayi },
+  { officeId: "nantou", pool: "general", capacity: 5, isoWeekdays: DEFAULT_CITY_WEEKS.nantou },
+];
+
+export function officeForCity(city) {
+  return OFFICES[CITY_TO_OFFICE[city]] || OFFICES.taichung;
+}
+
+export function composeAskCity() {
+  return "請問您要在哪個縣市面試？\n請回：" + CITIES.slice(0, -1).join("、") + "或" + CITIES.at(-1) + "。";
+}
+
+export function extractCity(text) {
+  const t = String(text || "").replace(/\s+/g, "");
+  const hits = CITIES.filter((city) => t.includes(city));
+  return hits.length === 1 ? hits[0] : "";
+}
+
+export function hasBookableSlots(isoWeekdays) {
+  for (let day = 1; day <= 7; day++) {
+    if (slotsOf(isoWeekdays, day).length) return true;
+  }
+  return false;
+}
+
+export function ruleForCity(schedule, city) {
+  const officeId = officeForCity(city).id;
+  const found = (schedule?.rules || []).find((r) => r.officeId === officeId);
+  if (found) return found;
+  return DEFAULT_CITY_RULES.find((r) => r.officeId === officeId) || DEFAULT_CITY_RULES[0];
+}
 
 const DAY_ZH = ["", "一", "二", "三", "四", "五", "六", "日"];
 const ZH_DAY = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 日: 7, 天: 7 };
@@ -287,12 +390,35 @@ export function composeHuman() {
 
 export function composeMine(booking, office = TAICHUNG_OFFICE) {
   if (!booking) {
-    return "目前沒有尚未開始的有效預約。\n要預約請回「預約面試」，或直接回例如：禮拜一下午2點。";
+    return "目前沒有尚未開始的有效預約。\n要預約請回「預約面試」。";
   }
   return [
     alreadyBookedText(booking.interview_date || booking.date, booking.start_time || booking.start, office),
     "若要取消，請回「取消預約」。",
   ].join("\n");
+}
+
+function customOfferFor(office, schedule, fallback) {
+  const offers = schedule?.lineOffers || {};
+  return String(offers[office.id] || (office.id === "taichung" ? schedule?.lineOffer || fallback : "") || fallback || "").trim();
+}
+
+function contextForCity(city, { schedule, isoWeekdays, office, customOffer } = {}) {
+  const chosen = city ? officeForCity(city) : office || TAICHUNG_OFFICE;
+  const rule = ruleForCity(schedule, chosen.city);
+  return {
+    office: chosen,
+    isoWeekdays: rule?.isoWeekdays || isoWeekdays || DEFAULT_CITY_WEEKS[chosen.id] || {},
+    custom: customOfferFor(chosen, schedule, customOffer),
+    capacity: Number(rule?.capacity) || 5,
+  };
+}
+
+function offerForContext(ctx) {
+  if (!hasBookableSlots(ctx.isoWeekdays)) {
+    return `目前${ctx.office.city}尚未排可預約時段。請改選其他縣市，或回「聯絡同仁」。`;
+  }
+  return ctx.custom || composeOfferGuide(ctx.isoWeekdays, ctx.office);
 }
 
 export function composeOfferGuide(isoWeekdays = DEFAULT_TAICHUNG_WEEK, office = TAICHUNG_OFFICE) {
@@ -316,7 +442,7 @@ export function classifyLineText(text) {
   if (/^(聯絡同仁|轉人工)$/.test(t)) return { kind: "human" };
   if (/^(取消預約|不能來了)$/.test(t)) return { kind: "cancel" };
   if (t === "社宅顧問" || t === "儲備主管") return { kind: "job", value: t };
-  if (["新竹", "台中", "彰化", "嘉義", "南投"].includes(t)) return { kind: "city", value: t };
+  if (CITIES.includes(t)) return { kind: "city", value: t };
   if (/^0\d{8,12}$/.test(t)) return { kind: "phone", value: t };
   return { kind: "chat" };
 }
@@ -330,16 +456,21 @@ export function buildLineReply({
   booking = null,
   humanMode = false,
   customOffer = "",
+  applyCity = "",
+  schedule = null,
 } = {}) {
   if (humanMode) return { text: "", silent: true, actions: [] };
 
   const intent = classifyLineText(text);
-  const offer = () => String(customOffer || "").trim() || composeOfferGuide(isoWeekdays, office);
+  const args = { schedule, isoWeekdays, office, customOffer };
+  const knownCity = intent.kind === "city" ? intent.value : extractCity(text) || applyCity;
+  const ctx = contextForCity(knownCity, args);
+  const askCity = () => ({ text: composeAskCity(), actions: [] });
 
   if (intent.kind === "offer") {
-    return { text: booking ? composeMine(booking, office) : offer(), actions: [] };
+    return booking ? { text: composeMine(booking, ctx.office), actions: [] } : askCity();
   }
-  if (intent.kind === "mine") return { text: composeMine(booking, office), actions: [] };
+  if (intent.kind === "mine") return { text: composeMine(booking, ctx.office), actions: [] };
   if (intent.kind === "faq") return { text: composeFaqMenu(), actions: [] };
   if (intent.kind === "faq-work") return { text: FAQ_TEXTS.work, actions: [] };
   if (intent.kind === "faq-salary") return { text: FAQ_TEXTS.salary, actions: [] };
@@ -347,33 +478,43 @@ export function buildLineReply({
   if (intent.kind === "faq-nantou") return { text: FAQ_TEXTS.nantou, actions: [] };
   if (intent.kind === "human") return { text: composeHuman(), actions: [{ type: "human" }] };
   if (intent.kind === "cancel") {
-    if (!booking) return { text: composeMine(null, office), actions: [] };
-    return { text: "已幫您取消這次面試。若要再約，直接回新的時段即可。", actions: [{ type: "cancel" }] };
+    if (!booking) return { text: composeMine(null, ctx.office), actions: [] };
+    return { text: "已幫您取消這次面試。若要再約，請回「預約面試」。", actions: [{ type: "cancel" }] };
   }
   if (intent.kind === "job") {
     return {
-      text: `好的，已記下應徵${intent.value}。請回應徵縣市：新竹、台中、彰化、嘉義或南投。也可以直接回面試時段。`,
+      text: `好的，已記下應徵${intent.value}。\n\n` + composeAskCity(),
       actions: [{ type: "touch", job: intent.value }],
     };
   }
   if (intent.kind === "city") {
+    const cityCtx = contextForCity(intent.value, args);
     return {
-      text: `好的，應徵地是${intent.value}。方便的話請留手機，或直接回面試時段，例如：禮拜一下午2點。`,
+      text: offerForContext(cityCtx),
       actions: [{ type: "touch", city: intent.value }],
     };
   }
   if (intent.kind === "phone") {
-    return { text: "好的，已記下電話。\n\n" + offer(), actions: [{ type: "touch", phone: intent.value }] };
+    if (!applyCity) {
+      return { text: "好的，已記下電話。\n\n" + composeAskCity(), actions: [{ type: "touch", phone: intent.value }] };
+    }
+    return { text: "好的，已記下電話。\n\n" + offerForContext(ctx), actions: [{ type: "touch", phone: intent.value }] };
   }
 
-  const picked = parseTimeReply(text, { today, nowHm, isoWeekdays });
+  const picked = parseTimeReply(text, { today, nowHm, isoWeekdays: ctx.isoWeekdays });
   if (picked.ok) {
+    if (!knownCity) return askCity();
     if (!isBookable(picked.date, picked.start, today, nowHm)) {
-      return { text: "目前只開放含今天共14天、且開場前1小時可預約。請改選其他時段。\n\n" + offer(), actions: [] };
+      return { text: "目前只開放含今天共14天、且開場前1小時可預約。請改選其他時段。\n\n" + offerForContext(ctx), actions: [] };
     }
-    return { text: composeConfirm(office), actions: [{ type: "book", picked }] };
+    const actions = [{ type: "book", picked: { ...picked, officeId: ctx.office.id } }];
+    if (extractCity(text) && extractCity(text) !== applyCity) {
+      actions.unshift({ type: "touch", city: extractCity(text) });
+    }
+    return { text: composeConfirm(ctx.office), actions };
   }
-  if (booking && looksLikeOfferRequest(text)) return { text: composeMine(booking, office), actions: [] };
-  if (looksLikeOfferRequest(text)) return { text: offer(), actions: [] };
-  return { text: unclearTimeHelp() + "\n\n" + offer(), actions: [] };
+  if (booking && looksLikeOfferRequest(text)) return { text: composeMine(booking, ctx.office), actions: [] };
+  if (looksLikeOfferRequest(text)) return askCity();
+  if (!knownCity) return { text: unclearTimeHelp() + "\n\n" + composeAskCity(), actions: [] };
+  return { text: unclearTimeHelp() + "\n\n" + offerForContext(ctx), actions: [] };
 }

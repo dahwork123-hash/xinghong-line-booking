@@ -45,17 +45,21 @@ function taipeiNowHm() {
     .slice(0, 5);
 }
 
-function directorFor(schedule, isoDay, start, parseSlotTime) {
-  const rule = schedule?.rules?.[0] || {};
-  const directors = schedule?.directors || [];
+function directorFor(schedule, officeId, isoDay, start, parseSlotTime) {
+  const rule =
+    (schedule?.rules || []).find((r) => r.officeId === officeId) ||
+    (schedule?.rules || []).find((r) => r.officeId === "taichung") ||
+    schedule?.rules?.[0] ||
+    {};
+  const directors = (schedule?.directors || []).filter((d) => d.officeId === (rule.officeId || officeId));
   const assignments = schedule?.assignments || {};
   const times = rule.isoWeekdays?.[isoDay] || rule.isoWeekdays?.[String(isoDay)] || [];
   const time = times.find((t) => parseSlotTime(t)?.start === start);
-  const officeId = rule.officeId || "taichung";
+  const resolvedOffice = rule.officeId || officeId || "taichung";
   const pool = rule.pool || "general";
-  const key = officeId + "|" + pool + "|" + isoDay + "|" + start;
+  const key = resolvedOffice + "|" + pool + "|" + isoDay + "|" + start;
   const id = assignments[key] || directors[0]?.id || "";
-  const d = directors.find((x) => x.id === id) || directors[0];
+  const d = (schedule?.directors || []).find((x) => x.id === id) || directors[0];
   return {
     id: d?.id || "",
     label: d ? [d.unit, d.name].filter(Boolean).join(" ") : "",
@@ -111,7 +115,7 @@ async function applyActions(sb, schedule, userId, displayName, result, parseSlot
     }
     if (action.type === "book") {
       const picked = action.picked;
-      const meta = directorFor(schedule, picked.isoDay, picked.start, parseSlotTime);
+      const meta = directorFor(schedule, picked.officeId || "taichung", picked.isoDay, picked.start, parseSlotTime);
       const { error } = await sb.rpc("xinghong_line_book", {
         p_line_user_id: userId,
         p_line_name: displayName,
@@ -141,9 +145,7 @@ async function handleEvents(token, events) {
   ]);
   const {
     buildLineReply,
-    DEFAULT_TAICHUNG_WEEK,
     parseSlotTime,
-    TAICHUNG_OFFICE,
   } = chat;
   const sb = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
@@ -160,18 +162,16 @@ async function handleEvents(token, events) {
     const displayName = await lineName(token, userId);
     const { data: board } = await sb.rpc("xinghong_board");
     const schedule = board?.schedule || {};
-    const isoWeekdays = schedule?.rules?.[0]?.isoWeekdays || DEFAULT_TAICHUNG_WEEK;
     const candidate = (board?.candidates || []).find((c) => c.line_user_id === userId);
     const current = (board?.bookings || []).find((b) => b.candidate_id === candidate?.id);
     const result = buildLineReply({
       text: event.message.text || "",
       today: taipeiToday(),
       nowHm: taipeiNowHm(),
-      isoWeekdays,
-      office: TAICHUNG_OFFICE,
+      schedule,
+      applyCity: candidate?.apply_city || "",
       booking: current || null,
       humanMode: candidate?.line_mode === "human",
-      customOffer: schedule?.lineOffer || "",
     });
     if (result.silent) continue;
     await applyActions(sb, schedule, userId, displayName, result, parseSlotTime);
