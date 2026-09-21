@@ -6,7 +6,7 @@ import {
   officeForCity,
   OFFICES as INTERVIEW_OFFICES,
   DEFAULT_CITY_RULES,
-} from "./source/src/chat-offer.js?v=combine7";
+} from "./source/src/chat-offer.js?v=notify1";
 
 const DAY = ["", "一", "二", "三", "四", "五", "六", "日"];
 const OFFICES = { taichung: "台中", hsinchu: "新竹", taoyuan: "桃園", changhua: "彰化", chiayi: "嘉義", nantou: "南投" };
@@ -117,6 +117,7 @@ try {
   if (saved?.directors && saved?.rules) board = { ...defaults(), ...saved };
 } catch {}
 ensureCities(board);
+ensureBindCodes(board);
 
 let candidates = [];
 let bookings = [];
@@ -140,6 +141,25 @@ function ensureCities(next) {
   if (next.officeIndex >= next.rules.length) next.officeIndex = 0;
   next.lineOffers = next.lineOffers || {};
   next.officeDetails = next.officeDetails || {};
+  return added;
+}
+
+function newBindCode(used = new Set()) {
+  let code = String(100000 + Math.floor(Math.random() * 900000));
+  while (used.has(code)) code = String(100000 + Math.floor(Math.random() * 900000));
+  used.add(code);
+  return code;
+}
+
+function ensureBindCodes(next) {
+  const used = new Set((next.directors || []).map((d) => d.bindCode).filter(Boolean));
+  let added = false;
+  for (const d of next.directors || []) {
+    if (!d.bindCode) {
+      d.bindCode = newBindCode(used);
+      added = true;
+    }
+  }
   return added;
 }
 
@@ -192,11 +212,13 @@ async function loadCloud() {
     bookings = data?.bookings || [];
     if (data?.schedule?.directors && data?.schedule?.rules) {
       board = { ...defaults(), ...data.schedule };
-      const added = ensureCities(board);
+      const addedCities = ensureCities(board);
+      const addedCodes = ensureBindCodes(board);
       localStorage.setItem(KEY, JSON.stringify(board));
-      if (added) await rpc("xinghong_save_schedule", { p_value: board });
+      if (addedCities || addedCodes) await rpc("xinghong_save_schedule", { p_value: board });
     } else {
       ensureCities(board);
+      ensureBindCodes(board);
       await rpc("xinghong_save_schedule", { p_value: board });
     }
     reminders = (await rpc("xinghong_due_reminders")) || [];
@@ -430,7 +452,7 @@ function render() {
   const people = board.directors
     .filter((d) => d.officeId === r.officeId)
     .map(
-      (d) => `<article class="person-card"><div class="person-top"><span class="avatar" style="background:${color(d.id)}">${esc(d.name.slice(0, 1))}</span><div><strong>${esc(d.name)}</strong><span class="meta">${esc(d.unit || d.title)} · ${esc(OFFICES[d.officeId])} · ${d.pool === "admin" ? "行政" : "一般職缺"}</span></div></div><div class="notify">${d.notifyEmail || d.notifyLine ? esc([d.notifyEmail, d.notifyLine].filter(Boolean).join(" · ")) : "還沒填通知方式"}</div><div class="actions"><button data-act="edit-dir" data-id="${esc(d.id)}">改姓名／通知</button></div></article>`,
+      (d) => `<article class="person-card"><div class="person-top"><span class="avatar" style="background:${color(d.id)}">${esc(d.name.slice(0, 1))}</span><div><strong>${esc(d.name)}</strong><span class="meta">${esc(d.unit || d.title)} · ${esc(OFFICES[d.officeId])} · ${d.pool === "admin" ? "行政" : "一般職缺"}</span></div></div><div class="notify">${d.notifyLine ? esc("LINE已綁定" + (d.notifyLineName ? " · " + d.notifyLineName : "")) : esc(d.bindCode ? "尚未綁定 LINE · 碼 " + d.bindCode : "尚未綁定 LINE")}${d.notifyEmail ? "<br>" + esc(d.notifyEmail) : ""}</div><div class="actions"><button data-act="edit-dir" data-id="${esc(d.id)}">改姓名／綁定LINE</button></div></article>`,
     )
     .join("");
   const cityPeople = cityCandidates();
@@ -457,7 +479,7 @@ function render() {
     )
     .join("");
   const office = currentOffice();
-  const lineBox = `<div class="line-card"><h2>自動回 LINE 的訊息</h2><label>面試地點<input id="office-address" maxlength="80" value="${esc(office.address)}" placeholder="例如：台中市北屯區文心路四段698號6樓之1"></label><label>上樓說明<input id="office-arrival" maxlength="160" value="${esc(office.arrival)}"></label><p>求職者回「預約面試」會先問縣市，再看到下面這段「${esc(OFFICES[currentOfficeId()] || "")}」的約訪文案。可以直接改文字；改完按「儲存約訪文案」。</p><textarea id="line-offer" class="line-copy" maxlength="4900">${esc(offer)}</textarea><div class="line-actions"><button class="primary" data-act="save-offer">儲存約訪文案</button></div>${remindRows ? `<h3>明天要提醒</h3><pre class="line-copy">${esc(composeReminder(reminders[0].interview_date, reminders[0].start_time, applyOfficeDetails(officeForCity(reminders[0].apply_city || "台中"), board)))}</pre><ul class="remind-list">${remindRows}</ul>` : `<p class="hint-card">明天沒有已排定的面試，因此不會發提醒。</p>`}</div>`;
+  const lineBox = `<div class="line-card"><h2>自動回 LINE 的訊息</h2><label>面試地點<input id="office-address" maxlength="80" value="${esc(office.address)}" placeholder="例如：台中市北屯區文心路四段698號6樓之1"></label><label>上樓說明<input id="office-arrival" maxlength="160" value="${esc(office.arrival)}"></label><p>求職者回「預約面試」會先問縣市，再看到下面這段「${esc(OFFICES[currentOfficeId()] || "")}」的約訪文案。可以直接改文字；改完按「儲存約訪文案」。面試地點只在預約成功後才會寄出。</p><textarea id="line-offer" class="line-copy" maxlength="4900">${esc(offer)}</textarea><div class="line-actions"><button class="primary" data-act="save-offer">儲存約訪文案</button></div>${remindRows ? `<h3>明天要提醒</h3><pre class="line-copy">${esc(composeReminder(reminders[0].interview_date, reminders[0].start_time, applyOfficeDetails(officeForCity(reminders[0].apply_city || "台中"), board)))}</pre><ul class="remind-list">${remindRows}</ul>` : `<p class="hint-card">明天沒有已排定的面試，因此不會發提醒。</p>`}</div>`;
   $("#app").innerHTML = `<div class="studio"><div class="studio-hero"><h1>面試者與面試時間</h1><p>先選縣市，再把處長拉進格子。約訪文案與面試地點可在下面改，存檔後 LINE 會用那一段。</p></div>${renderStats()}<div class="week-toolbar"><div class="office-pills">${officePills}</div><div class="week-switch"><button data-act="week" data-id="${weekOffset - 1}">上一週</button><strong>${esc(weekLabel)}</strong><button data-act="week" data-id="${weekOffset + 1}">下一週</button></div><label>這個組每場最多幾人<input id="cap" type="number" min="1" max="99" value="${r.capacity}"></label></div>${renderSlotGrid(r)}${lineBox}<div class="candidate-panel"><div class="candidate-toolbar"><h2>面試者</h2><button class="primary" data-act="add-candidate">＋ 新增面試者</button><small>${esc(currentCity())} ${cityPeople.length} 人 · 已安排 ${cityPeople.filter((c) => activeBooking(c.id)).length} 場</small></div>${cityPeople.length ? `<table class="candidate-table"><thead><tr><th>姓名／LINE</th><th>職缺</th><th>面試時間</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : `<p>這個縣市還沒有面試者。求職者在 LINE 選「${esc(currentCity())}」後會出現在這裡，也可以按「新增面試者」手動填。</p>`}</div><div class="people-grid">${people}<button class="person-add" data-act="add-dir">＋ 新增處長或主管</button></div><div class="studio-foot"><button class="primary" data-act="save">儲存時間表</button><button data-act="reset">回復預設時段</button><small>時間表與面試者都在雲端，LINE 回覆會用這份時段。</small></div></div>`;
 }
 
@@ -468,8 +490,12 @@ function modal(html) {
 
 function dirForm(d) {
   const r = board.rules[board.officeIndex];
+  const code = d?.bindCode || newBindCode();
+  const bindBox = d?.notifyLine
+    ? `<p class="hint-card">已綁定 LINE${d.notifyLineName ? "：" + esc(d.notifyLineName) : ""}。有人約到這位主管的時段會立刻通知，面試前一天與前兩小時再提醒一次。</p><button type="button" data-act="unbind-dir" data-id="${esc(d.id)}">解除綁定</button>`
+    : `<p class="hint-card">請主管先加入星小鴻官方帳號，再傳「綁定 ${esc(code)}」。綁定後，面試者約到他的時段會 LINE 通知他。</p>`;
   modal(
-    `<h2>${d ? "修改處長資料" : "新增處長或主管"}</h2><form id="dir-form" data-id="${esc(d?.id || "")}"><label>姓名<input name="name" value="${esc(d?.name || "")}" maxlength="40" required></label><label>處別／單位<input name="unit" value="${esc(d?.unit || "")}" maxlength="20" placeholder="例如：中一處"></label><label>職稱<select name="title">${["處長", "主管", "面試官"].map((t) => `<option ${t === (d?.title || "處長") ? "selected" : ""}>${t}</option>`).join("")}</select></label><label>面試地<select name="officeId">${Object.entries(OFFICES).map(([id, n]) => `<option value="${id}" ${id === (d?.officeId || r.officeId) ? "selected" : ""}>${n}</option>`).join("")}</select></label><label>面試哪一組<select name="pool"><option value="general" ${(d?.pool || r.pool) === "general" ? "selected" : ""}>一般職缺</option><option value="admin" ${(d?.pool || r.pool) === "admin" ? "selected" : ""}>行政</option></select></label><label>通知信箱<input name="notifyEmail" type="email" value="${esc(d?.notifyEmail || "")}"></label><button class="primary">儲存這位處長</button></form>`,
+    `<h2>${d ? "修改處長資料" : "新增處長或主管"}</h2><form id="dir-form" data-id="${esc(d?.id || "")}" data-bind="${esc(code)}"><label>姓名<input name="name" value="${esc(d?.name || "")}" maxlength="40" required></label><label>處別／單位<input name="unit" value="${esc(d?.unit || "")}" maxlength="20" placeholder="例如：中一處"></label><label>職稱<select name="title">${["處長", "主管", "面試官"].map((t) => `<option ${t === (d?.title || "處長") ? "selected" : ""}>${t}</option>`).join("")}</select></label><label>面試地<select name="officeId">${Object.entries(OFFICES).map(([id, n]) => `<option value="${id}" ${id === (d?.officeId || r.officeId) ? "selected" : ""}>${n}</option>`).join("")}</select></label><label>面試哪一組<select name="pool"><option value="general" ${(d?.pool || r.pool) === "general" ? "selected" : ""}>一般職缺</option><option value="admin" ${(d?.pool || r.pool) === "admin" ? "selected" : ""}>行政</option></select></label><label>通知信箱<input name="notifyEmail" type="email" value="${esc(d?.notifyEmail || "")}"></label>${bindBox}<button class="primary">儲存這位處長</button></form>`,
   );
 }
 
@@ -553,6 +579,18 @@ document.addEventListener("click", (e) => {
   }
   if (a === "add-dir") return dirForm();
   if (a === "edit-dir") return dirForm(board.directors.find((d) => d.id === v));
+  if (a === "unbind-dir") {
+    const d = board.directors.find((x) => x.id === v);
+    if (d) {
+      d.notifyLine = "";
+      d.notifyLineName = "";
+      persist();
+      toast("已解除這位主管的 LINE 綁定。");
+      if ($("#dialog").open) dirForm(d);
+      else render();
+    }
+    return;
+  }
   if (a === "pick-dir") {
     selectedDir = selectedDir === v ? null : v;
     const dir = board.directors.find((d) => d.id === selectedDir);
@@ -679,6 +717,7 @@ document.addEventListener("change", (e) => {
       arrival: ($("#office-arrival")?.value || "").trim(),
     };
     persist(true);
+    render();
   }
 });
 document.addEventListener("input", (e) => {
@@ -714,6 +753,7 @@ document.addEventListener("submit", (e) => {
       toast("行政面試固定在台中。");
       return;
     }
+    const prev = board.directors.find((x) => x.id === f.dataset.id) || {};
     const next = {
       id: f.dataset.id || crypto.randomUUID(),
       name: data.name.trim(),
@@ -722,7 +762,9 @@ document.addEventListener("submit", (e) => {
       officeId: data.officeId,
       pool: data.pool,
       notifyEmail: data.notifyEmail || "",
-      notifyLine: "",
+      notifyLine: prev.notifyLine || "",
+      notifyLineName: prev.notifyLineName || "",
+      bindCode: prev.bindCode || f.dataset.bind || newBindCode(),
     };
     const i = board.directors.findIndex((d) => d.id === next.id);
     if (i >= 0) board.directors[i] = next;
