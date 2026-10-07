@@ -46,12 +46,13 @@ function taipeiNowHm() {
 }
 
 function directorFor(schedule, officeId, isoDay, start, parseSlotTime) {
+  const wanted = String(officeId || "taichung").replace(/-extra-.*$/, "");
   const rule =
-    (schedule?.rules || []).find((r) => r.officeId === officeId) ||
+    (schedule?.rules || []).find((r) => r.officeId === wanted) ||
     (schedule?.rules || []).find((r) => r.officeId === "taichung") ||
     schedule?.rules?.[0] ||
     {};
-  const directors = (schedule?.directors || []).filter((d) => d.officeId === (rule.officeId || officeId));
+  const directors = (schedule?.directors || []).filter((d) => d.officeId === (rule.officeId || wanted));
   const assignments = schedule?.assignments || {};
   const times = rule.isoWeekdays?.[isoDay] || rule.isoWeekdays?.[String(isoDay)] || [];
   const time = times.find((t) => parseSlotTime(t)?.start === start);
@@ -109,6 +110,7 @@ async function lineName(token, userId) {
 }
 
 const lastCityByUser = new Map();
+const lastInterviewByUser = new Map();
 
 async function applyActions(sb, schedule, userId, displayName, result, parseSlotTime) {
   let booked = null;
@@ -125,12 +127,15 @@ async function applyActions(sb, schedule, userId, displayName, result, parseSlot
     }
     if (action.type === "touch") {
       if (action.city) lastCityByUser.set(userId, action.city);
+      if (action.interviewCity !== undefined) lastInterviewByUser.set(userId, action.interviewCity);
       const payload = {
         p_line_user_id: userId,
         p_line_name: displayName,
       };
       if (action.job) payload.p_job = action.job;
       if (action.city) payload.p_apply_city = action.city;
+      if (action.interviewCity !== undefined) payload.p_interview_city = action.interviewCity;
+      if (action.officeId !== undefined) payload.p_interview_office_id = action.officeId;
       if (action.phone) payload.p_phone = action.phone;
       if (action.name) payload.p_name = action.name;
       if (action.jobPicked) payload.p_job_picked = true;
@@ -180,11 +185,14 @@ async function applyActions(sb, schedule, userId, displayName, result, parseSlot
   return booked;
 }
 
-async function loadBoard(sb, userId) {
+async function loadBoard(sb, userId, isActiveBooking, today, nowHm) {
   const { data: board } = await sb.rpc("xinghong_board");
   const schedule = board?.schedule || {};
   const candidate = (board?.candidates || []).find((c) => c.line_user_id === userId);
-  const current = (board?.bookings || []).find((b) => b.candidate_id === candidate?.id);
+  const current =
+    (board?.bookings || []).find(
+      (b) => b.candidate_id === candidate?.id && isActiveBooking(b, today, nowHm),
+    ) || null;
   return { schedule, candidate, current, board };
 }
 
@@ -203,8 +211,8 @@ async function notifyDirectorBooked(token, sb, chat, schedule, booked, candidate
   if (!booked?.meta?.id) return;
   const director = chat.directorById(schedule, booked.meta.id);
   if (!director?.notifyLine) return;
-  const city = candidate?.apply_city || booked.picked?.city || "台中";
-  const office = chat.applyOfficeDetails(chat.officeForCity(city), schedule);
+  const city = candidate?.interview_city || booked.picked?.city || candidate?.apply_city || "台中";
+  const office = chat.resolveOffice(city, schedule, candidate?.interview_office_id || booked.picked?.branchId);
   const text = chat.composeDirectorNotice(
     "booked",
     {
@@ -261,6 +269,7 @@ async function handleEvents(token, events) {
     parseSlotTime,
     classifyLineText,
     classifyBindText,
+    isActiveBooking,
   } = chat;
   const sb = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
@@ -282,24 +291,41 @@ async function handleEvents(token, events) {
       continue;
     }
     const intent = classifyLineText(text);
-    if (intent.kind === "city") {
+    let { schedule, candidate, current } = await loadBoard(
+      sb,
+      userId,
+      isActiveBooking,
+      taipeiToday(),
+      taipeiNowHm(),
+    );
+    const applyingNantou = candidate?.apply_city === "南投" && !candidate?.interview_city;
+    if (intent.kind === "city" && !(applyingNantou && (intent.value === "台中" || intent.value === "彰化"))) {
       await rememberCity(sb, userId, displayName, intent.value);
     }
-    let { schedule, candidate, current } = await loadBoard(sb, userId);
     if (intent.kind === "chat" && !lastCityByUser.get(userId)) {
       for (let i = 0; i < 3; i++) {
         await new Promise((resolve) => setTimeout(resolve, 150));
-        ({ schedule, candidate, current } = await loadBoard(sb, userId));
+        ({ schedule, candidate, current } = await loadBoard(
+          sb,
+          userId,
+          isActiveBooking,
+          taipeiToday(),
+          taipeiNowHm(),
+        ));
         if (candidate?.apply_city) break;
       }
     }
     const applyCity = lastCityByUser.get(userId) || candidate?.apply_city || "";
+    const interviewCity = lastInterviewByUser.has(userId)
+      ? lastInterviewByUser.get(userId)
+      : candidate?.interview_city || "";
     const result = buildLineReply({
       text,
       today: taipeiToday(),
       nowHm: taipeiNowHm(),
       schedule,
       applyCity,
+      interviewCity,
       booking: current || null,
       humanMode: candidate?.line_mode === "human",
       profile: {
@@ -309,13 +335,14 @@ async function handleEvents(token, events) {
         namePicked: Boolean(candidate?.line_name_picked),
         jobPicked: Boolean(candidate?.line_job_picked),
         profileOk: Boolean(candidate?.line_profile_ok),
+        officeId: candidate?.interview_office_id || "",
       },
       pending: candidate?.line_pending || null,
     });
     if (result.silent) continue;
     const booked = await applyActions(sb, schedule, userId, displayName, result, parseSlotTime);
     if (booked) {
-      const fresh = await loadBoard(sb, userId);
+      const fresh = await loadBoard(sb, userId, isActiveBooking, taipeiToday(), taipeiNowHm());
       await notifyDirectorBooked(token, sb, chat, fresh.schedule || schedule, booked, fresh.candidate || candidate);
     }
     await lineReply(token, replyToken, result.text);

@@ -5,6 +5,7 @@ import {
   composeConfirm,
   composeReminder,
   composeDirectorNotice,
+  composeAskJob,
   parseTimeReply,
   buildLineReply,
   classifyLineText,
@@ -96,7 +97,7 @@ test("combines rich-menu commands with natural-language booking", () => {
     customOffer: "自訂約訪文案",
     profile: { profileOk: true },
   });
-  assert.equal(custom.text, "自訂約訪文案");
+  assert.match(custom.text, /自訂約訪文案/);
   assert.equal(custom.actions[0].type, "touch");
   assert.equal(custom.actions[0].city, "台中");
 });
@@ -148,7 +149,36 @@ test("shows that city's slots after the applicant picks a city", () => {
   assert.match(hsinchu.text, /光明五街342號2樓/);
 
   const nantou = buildLineReply({ text: "南投", today: "2026-09-13", profile: { profileOk: true } });
-  assert.match(nantou.text, /尚未排可預約時段/);
+  assert.match(nantou.text, /台中或彰化面試/);
+  assert.equal(nantou.actions[0].interviewCity, "");
+
+  const nantouToChanghua = buildLineReply({
+    text: "2",
+    today: "2026-09-13",
+    applyCity: "南投",
+    profile: { profileOk: true },
+  });
+  assert.equal(nantouToChanghua.actions[0].interviewCity, "彰化");
+  assert.match(nantouToChanghua.text, /禮拜四/);
+
+  const nantouSwitch = buildLineReply({
+    text: "新竹",
+    today: "2026-09-13",
+    applyCity: "南投",
+    profile: { profileOk: true },
+  });
+  assert.equal(nantouSwitch.actions[0].city, "新竹");
+  assert.equal(nantou.actions[0].city, "南投");
+
+  const nantouToTaichung = buildLineReply({
+    text: "1",
+    today: "2026-09-13",
+    applyCity: "南投",
+    profile: { profileOk: true },
+    customOffer: "台中約訪文案",
+  });
+  assert.match(nantouToTaichung.text, /台中約訪文案/);
+  assert.equal(nantouToTaichung.actions[0].interviewCity, "台中");
 
   const taoyuan = buildLineReply({ text: "桃園", today: "2026-09-13", profile: { profileOk: true } });
   assert.match(taoyuan.text, /尚未排可預約時段/);
@@ -221,13 +251,15 @@ test("asks for name, phone and job before showing slots or confirming", () => {
   assert.match(phone.text, /應徵哪個職位/);
 
   const job = buildLineReply({
-    text: "行政職",
+    text: "2",
     today: "2026-09-14",
     applyCity: "台中",
     profile: { namePicked: true, name: "王小明", phone: "0912345678" },
   });
-  assert.equal(job.actions[0].job, "行政職");
+  assert.equal(job.actions[0].job, "儲備主管");
   assert.match(job.text, /請問您哪個時段可以來面試呢/);
+  assert.equal(classifyLineText("社宅顧問").value, "社宅顧問");
+  assert.match(composeAskJob(), /1 社宅顧問，或 2 儲備主管/);
 
   const tooSoon = buildLineReply({
     text: "禮拜一下午2點",
@@ -237,6 +269,113 @@ test("asks for name, phone and job before showing slots or confirming", () => {
   });
   assert.equal(tooSoon.actions[0].type, "pending");
   assert.match(tooSoon.text, /真實姓名/);
+});
+
+test("我的預約 shows the live slot and ignores leftover past bookings", () => {
+  assert.equal(classifyLineText("我的面試").kind, "mine");
+  assert.equal(classifyLineText("我的預約\u200b").kind, "mine");
+  const past = { interview_date: "2026-09-21", start_time: "14:00" };
+  const empty = buildLineReply({
+    text: "我的預約",
+    today: "2026-09-22",
+    nowHm: "21:59",
+    booking: past,
+    applyCity: "桃園",
+  });
+  assert.match(empty.text, /沒有尚未開始的有效預約/);
+  assert.doesNotMatch(empty.text, /哪個縣市/);
+
+  const live = buildLineReply({
+    text: "我的預約",
+    today: "2026-09-22",
+    nowHm: "21:59",
+    booking: { interview_date: "2026-09-28", start_time: "14:00" },
+    applyCity: "桃園",
+  });
+  assert.match(live.text, /您目前已預約 9\/28（禮拜一）下午2點/);
+});
+
+test("expired bookings do not block a new 預約面試", () => {
+  const past = {
+    interview_date: "2026-09-21",
+    start_time: "14:00",
+  };
+  const retry = buildLineReply({
+    text: "預約面試",
+    today: "2026-09-22",
+    nowHm: "21:45",
+    booking: past,
+    applyCity: "桃園",
+    profile: { profileOk: true },
+  });
+  assert.match(retry.text, /哪個縣市/);
+  assert.doesNotMatch(retry.text, /您目前已預約/);
+
+  const stillOn = buildLineReply({
+    text: "預約面試",
+    today: "2026-09-21",
+    nowHm: "13:00",
+    booking: past,
+  });
+  assert.match(stillOn.text, /您目前已預約/);
+});
+
+test("asks which Taichung office when staff added a second address", () => {
+  const schedule = {
+    officeDetails: {
+      taichung: {
+        extras: [{ id: "taichung-extra-1", label: "台中河南路辦公室", address: "台中市河南路二段200號" }],
+      },
+    },
+  };
+  const ask = buildLineReply({
+    text: "台中",
+    today: "2026-09-13",
+    schedule,
+    profile: { profileOk: true },
+  });
+  assert.match(ask.text, /台中河南路辦公室/);
+  assert.match(ask.text, /1 台中分公司/);
+
+  const picked = buildLineReply({
+    text: "2",
+    today: "2026-09-13",
+    applyCity: "台中",
+    interviewCity: "台中",
+    schedule,
+    profile: { profileOk: true },
+  });
+  assert.equal(picked.actions[0].officeId, "taichung-extra-1");
+  assert.match(picked.text, /請問您哪個時段可以來面試呢/);
+
+  const book = buildLineReply({
+    text: "禮拜一下午2點",
+    today: "2026-09-14",
+    nowHm: "10:00",
+    applyCity: "台中",
+    interviewCity: "台中",
+    schedule,
+    profile: { profileOk: true, officeId: "taichung-extra-1" },
+  });
+  assert.match(book.text, /河南路二段200號/);
+  assert.equal(book.actions.find((a) => a.type === "book").picked.officeId, "taichung");
+});
+
+test("questions go to staff as pending", () => {
+  const q = buildLineReply({
+    text: "請問面試要帶什麼嗎",
+    today: "2026-09-22",
+    applyCity: "台中",
+    profile: { profileOk: true },
+  });
+  assert.equal(q.actions[0].type, "human");
+  assert.match(q.text, /招募同仁/);
+  const book = buildLineReply({
+    text: "請問可以預約面試嗎",
+    today: "2026-09-22",
+    profile: { profileOk: true },
+  });
+  assert.notEqual(book.actions[0]?.type, "human");
 });
 
 test("binds a director LINE account from a six-digit code", () => {

@@ -2,8 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   composeReminder,
   composeDirectorNotice,
-  officeForCity,
-  applyOfficeDetails,
+  resolveOffice,
 } from "./chat-offer.js";
 
 function timingEqual(a, b) {
@@ -58,7 +57,8 @@ Deno.serve(async (req) => {
       skipped += 1;
       continue;
     }
-    const office = applyOfficeDetails(officeForCity(row.apply_city || "台中"), schedule);
+    const person = (board?.candidates || []).find((c) => c.id === row.candidate_id || c.line_user_id === row.line_user_id);
+    const office = resolveOffice(person?.interview_city || row.apply_city || "台中", schedule, person?.interview_office_id);
     const text = composeReminder(row.interview_date, row.start_time, office);
     const ok = await push(token, row.line_user_id, text);
     if (ok) {
@@ -73,7 +73,8 @@ Deno.serve(async (req) => {
       skipped += 1;
       continue;
     }
-    const office = applyOfficeDetails(officeForCity(row.apply_city || "台中"), schedule);
+    const person = (board?.candidates || []).find((c) => c.id === row.candidate_id);
+    const office = resolveOffice(person?.interview_city || row.apply_city || "台中", schedule, person?.interview_office_id);
     const text = composeDirectorNotice(row.kind, row, office);
     const ok = await push(token, row.notify_line, text);
     if (ok) {

@@ -790,6 +790,18 @@ textarea.line-copy {
   font-size: 13px;
   color: #3d5b48;
 }
+.office-extra {
+  border: 1px dashed #c3d7c8;
+  border-radius: 12px;
+  padding: 12px;
+  margin: 0 0 10px;
+  background: #f7fbf8;
+}
+.office-extra strong {
+  display: block;
+  margin: 0 0 8px;
+  color: #0f7a56;
+}
 .line-actions {
   display: flex;
   gap: 8px;
