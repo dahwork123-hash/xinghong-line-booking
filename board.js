@@ -6,7 +6,7 @@ import {
   officeForCity,
   OFFICES as INTERVIEW_OFFICES,
   DEFAULT_CITY_RULES,
-} from "./source/src/chat-offer.js?v=offices1";
+} from "./source/src/chat-offer.js?v=offices2";
 
 const DAY = ["", "一", "二", "三", "四", "五", "六", "日"];
 const OFFICES = { taichung: "台中", hsinchu: "新竹", taoyuan: "桃園", changhua: "彰化", chiayi: "嘉義", nantou: "南投" };

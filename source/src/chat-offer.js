@@ -38,9 +38,9 @@ export const OFFICES = {
   nantou: {
     id: "nantou",
     city: "南投",
-    label: "南投（草屯）",
+    label: "南投",
     address: "南投面試地點請依招募同仁通知",
-    arrival: "目前南投面試地點請依招募同仁通知。之後辦公可以在草屯辦公室。",
+    arrival: "目前南投面試地點請依招募同仁通知。之後可在南投辦公。",
     weather: WEATHER,
   },
   taoyuan: {
@@ -151,7 +151,7 @@ export function resolveOffice(city, schedule, officeId) {
 
 export function composeAskNantouInterview() {
   return [
-    "南投應徵可以到台中或彰化面試，之後可在草屯辦公。",
+    "南投應徵可以到台中或彰化面試，之後可在南投辦公。",
     "請問您方便到哪裡面試？",
     "請回：1 台中，或 2 彰化。",
   ].join("\n");
@@ -535,7 +535,7 @@ export const FAQ_TEXTS = {
   work: "您好，\n我們是政府合法委託社會住宅包租代管業者，致力於推廣社會住宅政策\n服務過程不收仲介費服務費，都是由政府經費撥款\n\n工作內容\n1.社會住宅推廣解說\n2.協助民眾辦理社會住宅相關補助\n3.評估房屋市場行情\n4.協助客戶處理糾紛\n5.電話拜訪客戶了解客戶案例\n\n現場會有面試主管向您說明",
   salary: "您好，我們有底薪制(儲備培訓)、高獎金論件計酬及兼職，現場會有面試主管向您說明\n0900-1800，周休二日 見紅休",
   office: "您好，我們面試和上課主要在台中辦公室，實際面試地址請看預約成功後的確認訊息。之後上班可以選就近的辦公室。",
-  nantou: "南投應徵可以到台中或彰化面試，之後辦公可以在草屯辦公室。",
+  nantou: "南投應徵可以到台中或彰化面試，之後可在南投辦公。",
 };
 
 export function composeFaqMenu() {
