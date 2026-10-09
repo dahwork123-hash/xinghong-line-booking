@@ -320,36 +320,52 @@ test("expired bookings do not block a new 預約面試", () => {
   assert.match(stillOn.text, /您目前已預約/);
 });
 
-test("asks which Taichung office when staff added a second address", () => {
+test("the slot's director decides which Taichung office the applicant goes to", () => {
   const schedule = {
+    rules: [
+      {
+        officeId: "taichung",
+        pool: "general",
+        capacity: 5,
+        isoWeekdays: { 2: ["11:00-13:00", "14:00-16:00", "16:00-18:00"] },
+      },
+    ],
     officeDetails: {
       taichung: {
-        extras: [{ id: "taichung-extra-1", label: "台中河南路辦公室", address: "台中市河南路二段200號" }],
+        label: "文心路",
+        extras: [{ id: "taichung-extra-1", label: "台中路", address: "台中市東區台中路77號" }],
       },
     },
+    directors: [
+      { id: "d-wx", name: "童翊桓", officeId: "taichung", branchId: "taichung" },
+      { id: "d-tz", name: "蘇睿雅", officeId: "taichung", branchId: "taichung-extra-1" },
+      { id: "d-none", name: "吳震", officeId: "taichung" },
+    ],
+    assignments: {
+      "taichung|general|2|11:00": "d-wx",
+      "taichung|general|2|14:00": "d-tz",
+      "taichung|general|2|16:00": "d-none",
+    },
   };
-  const ask = buildLineReply({
-    text: "台中",
-    today: "2026-09-13",
-    schedule,
-    profile: { profileOk: true },
-  });
-  assert.match(ask.text, /台中河南路辦公室/);
-  assert.match(ask.text, /1 台中分公司/);
+  const offer = buildLineReply({ text: "台中", today: "2026-09-14", schedule, profile: { profileOk: true } });
+  assert.doesNotMatch(offer.text, /哪一間|請回：1/);
+  assert.match(offer.text, /禮拜二，上午11點\(文心路\)、下午2點\(台中路\)或4點\(文心路\)/);
 
-  const picked = buildLineReply({
-    text: "2",
-    today: "2026-09-13",
+  const book = buildLineReply({
+    text: "禮拜二下午2點",
+    today: "2026-09-14",
+    nowHm: "10:00",
     applyCity: "台中",
     interviewCity: "台中",
     schedule,
     profile: { profileOk: true },
   });
-  assert.equal(picked.actions[0].officeId, "taichung-extra-1");
-  assert.match(picked.text, /請問您哪個時段可以來面試呢/);
+  assert.match(book.text, /台中路77號/);
+  assert.equal(book.actions.find((a) => a.type === "touch").officeId, "taichung-extra-1");
+  assert.equal(book.actions.find((a) => a.type === "book").picked.branchId, "taichung-extra-1");
 
-  const book = buildLineReply({
-    text: "禮拜一下午2點",
+  const later = buildLineReply({
+    text: "禮拜二下午4點",
     today: "2026-09-14",
     nowHm: "10:00",
     applyCity: "台中",
@@ -357,8 +373,32 @@ test("asks which Taichung office when staff added a second address", () => {
     schedule,
     profile: { profileOk: true, officeId: "taichung-extra-1" },
   });
-  assert.match(book.text, /河南路二段200號/);
-  assert.equal(book.actions.find((a) => a.type === "book").picked.officeId, "taichung");
+  assert.match(later.text, /文心路四段698號/);
+
+  const mine = buildLineReply({
+    text: "我的預約",
+    today: "2026-09-14",
+    nowHm: "10:00",
+    applyCity: "台中",
+    interviewCity: "台中",
+    schedule,
+    profile: { profileOk: true, officeId: "taichung" },
+    booking: { interview_date: "2026-09-15", start_time: "11:00", director_id: "d-tz" },
+  });
+  assert.match(mine.text, /台中路77號/);
+
+  const pendingDone = buildLineReply({
+    text: "社宅顧問",
+    today: "2026-09-14",
+    nowHm: "10:00",
+    applyCity: "台中",
+    interviewCity: "台中",
+    schedule,
+    profile: { name: "王小明", namePicked: true, phone: "0912345678" },
+    pending: { date: "2026-09-15", start: "14:00", end: "16:00", officeId: "taichung", city: "台中" },
+  });
+  assert.match(pendingDone.text, /台中路77號/);
+  assert.equal(pendingDone.actions.find((a) => a.type === "book").picked.branchId, "taichung-extra-1");
 });
 
 test("questions go to staff as pending", () => {

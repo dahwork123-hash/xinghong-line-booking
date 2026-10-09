@@ -149,6 +149,26 @@ export function resolveOffice(city, schedule, officeId) {
   return list.find((item) => item.id === officeId) || list[0];
 }
 
+export function slotDirectorId(schedule, officeId, day, start) {
+  return schedule?.assignments?.[`${officeId}|general|${day}|${start}`] || "";
+}
+
+export function officeOfDirector(city, schedule, directorId) {
+  return resolveOffice(city, schedule, directorById(schedule, directorId)?.branchId || "");
+}
+
+export function officeForSlot(city, schedule, date, start, directorId = "") {
+  const base = officeForCity(city);
+  const id = directorId || (date && start ? slotDirectorId(schedule, base.id, weekday(date), start) : "");
+  return officeOfDirector(city, schedule, id);
+}
+
+export function slotPlaceLabeler(city, schedule) {
+  if (officesForCity(city, schedule).length < 2) return null;
+  const base = officeForCity(city);
+  return (day, start) => officeOfDirector(city, schedule, slotDirectorId(schedule, base.id, day, start)).label;
+}
+
 export function composeAskNantouInterview() {
   return [
     "南投應徵可以到台中或彰化面試，之後可在南投辦公。",
@@ -157,32 +177,11 @@ export function composeAskNantouInterview() {
   ].join("\n");
 }
 
-export function composeAskOffice(offices) {
-  const choices = (offices || []).map((item, i) => `${i + 1} ${item.label}`).join("，或 ");
-  return "這個縣市有超過一個面試地點。請問您要到哪一間？\n請回：" + choices + "。";
-}
-
 export function parseNantouInterview(text) {
   const t = cleanLineText(text);
   if (t === "台中" || t === "1" || t === "１") return "台中";
   if (t === "彰化" || t === "2" || t === "２") return "彰化";
   return "";
-}
-
-export function parseOfficeChoice(text, offices) {
-  const list = offices || [];
-  const t = cleanLineText(text);
-  if (!t || !list.length) return null;
-  const full = { "１": 1, "２": 2, "３": 3 }[t] || Number(t);
-  if (Number.isInteger(full) && full >= 1 && full <= list.length) return list[full - 1];
-  return (
-    list.find(
-      (item) =>
-        t === cleanLineText(item.label) ||
-        t === cleanLineText(item.address) ||
-        (item.address && item.address.includes(t)),
-    ) || null
-  );
 }
 
 export function looksLikeStaffQuestion(text) {
@@ -367,21 +366,22 @@ function compactClocks(labels) {
   return labels[0] + "、" + rest.slice(0, -1).join("、") + "或" + rest.at(-1);
 }
 
-function formatDayTimes(starts) {
-  const morning = starts.filter((t) => t < "12:00").map(zhClock);
-  const afternoon = starts.filter((t) => t >= "12:00").map(zhClock);
+function formatDayTimes(starts, day, placeOf) {
+  const label = (t) => zhClock(t) + (placeOf ? `(${placeOf(day, t)})` : "");
+  const morning = starts.filter((t) => t < "12:00").map(label);
+  const afternoon = starts.filter((t) => t >= "12:00").map(label);
   const parts = [];
   if (morning.length) parts.push(compactClocks(morning));
   if (afternoon.length) parts.push(compactClocks(afternoon));
   return parts.join("、");
 }
 
-export function composeOffer(isoWeekdays = DEFAULT_TAICHUNG_WEEK, office = TAICHUNG_OFFICE) {
+export function composeOffer(isoWeekdays = DEFAULT_TAICHUNG_WEEK, office = TAICHUNG_OFFICE, placeOf = null) {
   const lines = ["您好，", "跟您約"];
   for (let day = 1; day <= 7; day++) {
     const starts = slotsOf(isoWeekdays, day).map((s) => s.start);
     if (!starts.length) continue;
-    lines.push(`禮拜${DAY_ZH[day]}，${formatDayTimes(starts)}`);
+    lines.push(`禮拜${DAY_ZH[day]}，${formatDayTimes(starts, day, placeOf)}`);
   }
   lines.push("");
   lines.push(office.weather);
@@ -594,6 +594,7 @@ function contextForCity(city, { schedule, isoWeekdays, office, customOffer } = {
     isoWeekdays: rule?.isoWeekdays || isoWeekdays || DEFAULT_CITY_WEEKS[chosen.id] || {},
     custom: customOfferFor(chosen, schedule, customOffer),
     capacity: Number(rule?.capacity) || 5,
+    placeOf: slotPlaceLabeler(chosen.city, schedule),
   };
 }
 
@@ -601,12 +602,12 @@ function offerForContext(ctx) {
   if (!hasBookableSlots(ctx.isoWeekdays)) {
     return `目前${ctx.office.city}尚未排可預約時段。請改選其他縣市，或回「聯絡同仁」。`;
   }
-  return ctx.custom || composeOfferGuide(ctx.isoWeekdays, ctx.office);
+  return ctx.custom || composeOfferGuide(ctx.isoWeekdays, ctx.office, ctx.placeOf);
 }
 
-export function composeOfferGuide(isoWeekdays = DEFAULT_TAICHUNG_WEEK, office = TAICHUNG_OFFICE) {
+export function composeOfferGuide(isoWeekdays = DEFAULT_TAICHUNG_WEEK, office = TAICHUNG_OFFICE, placeOf = null) {
   return [
-    composeOffer(isoWeekdays, office),
+    composeOffer(isoWeekdays, office, placeOf),
     "",
     "也可以先回職務：1 社宅顧問，或 2 儲備主管。",
     "圖文選單：預約面試／我的預約／常見問題／聯絡同仁。",
@@ -656,8 +657,16 @@ export function buildLineReply({
   const knownCity = slotCity || (intent.kind === "city" && intent.value !== "南投" ? intent.value : extractCity(text) || "");
   const ctx = contextForCity(knownCity || applyCity, args);
   const branches = knownCity ? officesForCity(knownCity, schedule) : [];
-  const waitingOffice = Boolean(knownCity && branches.length > 1 && !p.officeId);
-  const confirmOffice = resolveOffice(knownCity || applyCity || "台中", schedule, p.officeId);
+  const cityOffice = resolveOffice(knownCity || applyCity || "台中", schedule, "");
+  const bookingOffice = booking
+    ? officeForSlot(
+        knownCity || applyCity || "台中",
+        schedule,
+        booking.interview_date || booking.date,
+        booking.start_time || booking.start,
+        booking.director_id,
+      )
+    : cityOffice;
   const gap = nextProfileGap(profile);
   const askCity = () => ({ text: composeAskCity(), actions: [] });
   const askGap = (next, extra = "") => ({
@@ -666,10 +675,6 @@ export function buildLineReply({
   });
   const afterCityPicked = (city, extra, actions) => {
     const cityCtx = contextForCity(city, args);
-    const offices = officesForCity(city, schedule);
-    if (offices.length > 1) {
-      return { text: extra + composeAskOffice(offices), actions };
-    }
     if (gap) return { text: extra + composeAskProfile(gap), actions };
     return { text: extra + offerForContext(cityCtx), actions };
   };
@@ -677,28 +682,33 @@ export function buildLineReply({
     const next = nextProfileGap(nextProfile);
     if (next) return { text: extra + composeAskProfile(next), actions };
     if (pending) {
+      const city = pending.city || ctx.office.city;
+      const branch = officeForSlot(city, schedule, pending.date, pending.start);
       const picked = {
         ...pending,
         officeId: pending.officeId || ctx.office.id,
-        city: pending.city || ctx.office.city,
-        branchId: pending.branchId || confirmOffice.id,
+        city,
+        branchId: branch.id,
       };
       return {
-        text: extra + composeConfirm(confirmOffice, picked),
-        actions: [...actions, { type: "book", picked }, { type: "clear_pending" }],
+        text: extra + composeConfirm(branch, picked),
+        actions: [
+          ...actions,
+          ...(officesForCity(city, schedule).length > 1 ? [{ type: "touch", officeId: branch.id }] : []),
+          { type: "book", picked },
+          { type: "clear_pending" },
+        ],
       };
     }
     if (waitingNantou) return { text: extra + composeAskNantouInterview(), actions };
     if (!knownCity) return { text: extra + composeAskCity(), actions };
-    const pickedOffice = Boolean(p.officeId || (actions || []).some((item) => item.officeId));
-    if (branches.length > 1 && !pickedOffice) return { text: extra + composeAskOffice(branches), actions };
     return { text: extra + offerForContext(ctx), actions };
   };
 
   if (intent.kind === "offer") {
-    return booking ? { text: composeMine(booking, confirmOffice), actions: [] } : askCity();
+    return booking ? { text: composeMine(booking, bookingOffice), actions: [] } : askCity();
   }
-  if (intent.kind === "mine") return { text: composeMine(booking, confirmOffice), actions: [] };
+  if (intent.kind === "mine") return { text: composeMine(booking, bookingOffice), actions: [] };
   if (intent.kind === "faq") return { text: composeFaqMenu(), actions: [] };
   if (intent.kind === "faq-work") return { text: FAQ_TEXTS.work, actions: [] };
   if (intent.kind === "faq-salary") return { text: FAQ_TEXTS.salary, actions: [] };
@@ -706,7 +716,7 @@ export function buildLineReply({
   if (intent.kind === "faq-nantou") return { text: FAQ_TEXTS.nantou, actions: [] };
   if (intent.kind === "human") return { text: composeHuman(), actions: [{ type: "human" }] };
   if (intent.kind === "cancel") {
-    if (!booking) return { text: composeMine(null, confirmOffice), actions: [] };
+    if (!booking) return { text: composeMine(null, cityOffice), actions: [] };
     return { text: "已幫您取消這次面試。若要再約，請回「預約面試」。", actions: [{ type: "cancel" }] };
   }
 
@@ -730,13 +740,6 @@ export function buildLineReply({
     return afterCityPicked(intent.value, `好的，已記下${intent.value}。\n\n`, [
       { type: "touch", city: intent.value, interviewCity: intent.value, officeId: "" },
     ]);
-  }
-
-  if (waitingOffice) {
-    const chosen = parseOfficeChoice(text, branches);
-    if (chosen) {
-      return afterProfile([{ type: "touch", officeId: chosen.id }], `好的，已記下${chosen.label}。\n\n`, p);
-    }
   }
 
   const jobValue = intent.kind === "job" ? intent.value : gap === "job" ? parseJob(text) : "";
@@ -772,15 +775,14 @@ export function buildLineReply({
   if (gap === "job" && intent.kind === "chat") {
     return askGap("job", "請從下列選一個職位。\n\n");
   }
-  if (waitingOffice) return { text: composeAskOffice(branches), actions: [] };
-
   const picked = parseTimeReply(text, { today, nowHm, isoWeekdays: ctx.isoWeekdays });
   if (picked.ok) {
     if (waitingNantou || !knownCity) return waitingNantou ? { text: composeAskNantouInterview(), actions: [] } : askCity();
     if (!isBookable(picked.date, picked.start, today, nowHm)) {
       return { text: "目前只開放含今天共14天、且開場前1小時可預約。請改選其他時段。\n\n" + (gap ? composeAskProfile(gap) : offerForContext(ctx)), actions: [] };
     }
-    const slot = { ...picked, officeId: ctx.office.id, city: ctx.office.city, branchId: confirmOffice.id };
+    const branch = officeForSlot(knownCity, schedule, picked.date, picked.start);
+    const slot = { ...picked, officeId: ctx.office.id, city: ctx.office.city, branchId: branch.id };
     if (gap) {
       return {
         text: composeAskProfile(gap),
@@ -788,13 +790,14 @@ export function buildLineReply({
       };
     }
     const actions = [{ type: "book", picked: slot }];
-    if (ctx.office.city && ctx.office.city !== applyCity) {
-      actions.unshift({ type: "touch", interviewCity: ctx.office.city });
-    }
-    return { text: composeConfirm(confirmOffice, slot), actions };
+    const touch = {};
+    if (ctx.office.city && ctx.office.city !== applyCity) touch.interviewCity = ctx.office.city;
+    if (branches.length > 1) touch.officeId = branch.id;
+    if (Object.keys(touch).length) actions.unshift({ type: "touch", ...touch });
+    return { text: composeConfirm(branch, slot), actions };
   }
   if (looksLikeStaffQuestion(text)) return { text: composeHuman(), actions: [{ type: "human" }] };
-  if (booking && looksLikeOfferRequest(text)) return { text: composeMine(booking, confirmOffice), actions: [] };
+  if (booking && looksLikeOfferRequest(text)) return { text: composeMine(booking, bookingOffice), actions: [] };
   if (looksLikeOfferRequest(text)) return askCity();
   if (waitingNantou) return { text: composeAskNantouInterview(), actions: [] };
   if (!knownCity) return { text: unclearTimeHelp() + "\n\n" + composeAskCity(), actions: [] };

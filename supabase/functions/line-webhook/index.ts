@@ -212,7 +212,13 @@ async function notifyDirectorBooked(token, sb, chat, schedule, booked, candidate
   const director = chat.directorById(schedule, booked.meta.id);
   if (!director?.notifyLine) return;
   const city = candidate?.interview_city || booked.picked?.city || candidate?.apply_city || "台中";
-  const office = chat.resolveOffice(city, schedule, candidate?.interview_office_id || booked.picked?.branchId);
+  const office = chat.officeForSlot(
+    city,
+    schedule,
+    booked.picked?.date,
+    booked.picked?.start,
+    booked.meta.id,
+  );
   const text = chat.composeDirectorNotice(
     "booked",
     {

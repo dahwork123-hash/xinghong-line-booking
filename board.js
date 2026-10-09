@@ -4,9 +4,11 @@ import {
   composeReminder,
   applyOfficeDetails,
   officeForCity,
+  officesForCity,
+  slotPlaceLabeler,
   OFFICES as INTERVIEW_OFFICES,
   DEFAULT_CITY_RULES,
-} from "./source/src/chat-offer.js?v=offices3";
+} from "./source/src/chat-offer.js?v=dirplace1";
 
 const DAY = ["", "一", "二", "三", "四", "五", "六", "日"];
 const OFFICES = { taichung: "台中", hsinchu: "新竹", taoyuan: "桃園", changhua: "彰化", chiayi: "嘉義", nantou: "南投" };
@@ -297,6 +299,24 @@ function writeExtraOffices(id, extras) {
   board.officeDetails = board.officeDetails || {};
   board.officeDetails[id] = { ...(board.officeDetails[id] || {}), extras };
 }
+function branchChoices(officeId) {
+  return extraOfficesList(officeId).length ? officesForCity(OFFICES[officeId] || "台中", board) : [];
+}
+function directorBranch(d) {
+  const choices = branchChoices(d?.officeId);
+  if (!choices.length) return null;
+  return choices.find((o) => o.id === d.branchId) || choices[0];
+}
+function slotPlace(day, time) {
+  const r = board.rules[board.officeIndex];
+  const dir = board.directors.find((d) => d.id === board.assignments[slotKey(r.officeId, r.pool, day, time)]);
+  return dir ? directorBranch(dir) : null;
+}
+function moveSlotMeta(fromKey, toKey) {
+  const dirId = board.assignments[fromKey];
+  delete board.assignments[fromKey];
+  if (toKey && dirId) board.assignments[toKey] = dirId;
+}
 function savedOfferText() {
   const id = currentOfficeId();
   return String((board.lineOffers && board.lineOffers[id]) || (id === "taichung" ? board.lineOffer : "") || "").trim();
@@ -305,7 +325,7 @@ function currentOfferSaved() {
   return Boolean(savedOfferText());
 }
 function offerText() {
-  return savedOfferText() || composeOffer(weekdays(), currentOffice());
+  return savedOfferText() || composeOffer(weekdays(), currentOffice(), slotPlaceLabeler(currentCity(), board));
 }
 
 function slotSpan(time) {
@@ -384,10 +404,9 @@ function relocateSlot(fromDay, fromTime, toDay, toHour) {
     return;
   }
   r.isoWeekdays[fromDay] = (r.isoWeekdays[fromDay] || []).filter((t) => t !== fromTime);
-  delete board.assignments[slotKey(r.officeId, r.pool, fromDay, fromTime)];
   const next = rangeToken(toHour, end);
   r.isoWeekdays[toDay] = [...(r.isoWeekdays[toDay] || []), next].sort();
-  if (dirId) board.assignments[slotKey(r.officeId, r.pool, toDay, next)] = dirId;
+  moveSlotMeta(slotKey(r.officeId, r.pool, fromDay, fromTime), slotKey(r.officeId, r.pool, toDay, next));
   persist();
   render();
   const dir = board.directors.find((d) => d.id === dirId);
@@ -409,10 +428,7 @@ function resizeSlot(day, time) {
   }
   const next = rangeToken(p.start, end);
   r.isoWeekdays[day] = (r.isoWeekdays[day] || []).map((t) => (t === time ? next : t)).sort();
-  const key = slotKey(r.officeId, r.pool, day, time);
-  const dirId = board.assignments[key];
-  delete board.assignments[key];
-  if (dirId) board.assignments[slotKey(r.officeId, r.pool, day, next)] = dirId;
+  moveSlotMeta(slotKey(r.officeId, r.pool, day, time), slotKey(r.officeId, r.pool, day, next));
   persist();
   render();
 }
@@ -435,7 +451,8 @@ function renderSlotGrid(r) {
             group(r)[0];
           const seated = slotBookings(dateForDay(weekOffset, day), start);
           const names = seated.map((b) => candidates.find((c) => c.id === b.candidate_id)?.name || "面試者").join("、");
-          return `<div class="grid-fill" data-drop-cell="${day}|${hour}" data-slot-time="${esc(started)}" data-act="open-slot" data-id="${day}|${esc(started)}" style="grid-column:${day + 1};grid-row:${i + 2} / span ${span};background:${color(dir?.id || "x")}"><button type="button" class="grid-x" data-act="remove-slot" data-id="${day}|${esc(started)}" aria-label="移除時段">×</button><b>${esc(dir?.name || "尚未指定")}</b><small>${esc([dir?.unit, rangeLabel(started)].filter(Boolean).join(" · "))}</small><span class="count">${seated.length}/${r.capacity}${names ? " · " + esc(names) : ""}</span><button type="button" class="grid-len" data-act="slot-len" data-id="${day}|${esc(started)}">${span <= 1 ? "改2小時" : "改1小時"}</button></div>`;
+          const place = slotPlace(day, started);
+          return `<div class="grid-fill" data-drop-cell="${day}|${hour}" data-slot-time="${esc(started)}" data-act="open-slot" data-id="${day}|${esc(started)}" style="grid-column:${day + 1};grid-row:${i + 2} / span ${span};background:${color(dir?.id || "x")}"><button type="button" class="grid-x" data-act="remove-slot" data-id="${day}|${esc(started)}" aria-label="移除時段">×</button><b>${esc(dir?.name || "尚未指定")}</b><small>${esc([dir?.unit, rangeLabel(started), place?.label].filter(Boolean).join(" · "))}</small><span class="count">${seated.length}/${r.capacity}${names ? " · " + esc(names) : ""}</span><button type="button" class="grid-len" data-act="slot-len" data-id="${day}|${esc(started)}">${span <= 1 ? "改2小時" : "改1小時"}</button></div>`;
         }
         const covered = (r.isoWeekdays[day] || []).some((t) => {
           const p = parseRange(t);
@@ -492,7 +509,7 @@ function render() {
   const people = board.directors
     .filter((d) => d.officeId === r.officeId)
     .map(
-      (d) => `<article class="person-card"><div class="person-top"><span class="avatar" style="background:${color(d.id)}">${esc(d.name.slice(0, 1))}</span><div><strong>${esc(d.name)}</strong><span class="meta">${esc(d.unit || d.title)} · ${esc(OFFICES[d.officeId])} · ${d.pool === "admin" ? "行政" : "一般職缺"}</span></div></div><div class="notify">${d.notifyLine ? esc("LINE已綁定" + (d.notifyLineName ? " · " + d.notifyLineName : "")) : esc(d.bindCode ? "尚未綁定 LINE · 碼 " + d.bindCode : "尚未綁定 LINE")}${d.notifyEmail ? "<br>" + esc(d.notifyEmail) : ""}</div><div class="actions"><button data-act="edit-dir" data-id="${esc(d.id)}">改姓名／綁定LINE</button></div></article>`,
+      (d) => `<article class="person-card"><div class="person-top"><span class="avatar" style="background:${color(d.id)}">${esc(d.name.slice(0, 1))}</span><div><strong>${esc(d.name)}</strong><span class="meta">${esc(d.unit || d.title)} · ${esc(OFFICES[d.officeId])}${directorBranch(d) ? " " + esc(directorBranch(d).label) : ""} · ${d.pool === "admin" ? "行政" : "一般職缺"}</span></div></div><div class="notify">${d.notifyLine ? esc("LINE已綁定" + (d.notifyLineName ? " · " + d.notifyLineName : "")) : esc(d.bindCode ? "尚未綁定 LINE · 碼 " + d.bindCode : "尚未綁定 LINE")}${d.notifyEmail ? "<br>" + esc(d.notifyEmail) : ""}</div><div class="actions"><button data-act="edit-dir" data-id="${esc(d.id)}">改姓名／綁定LINE</button></div></article>`,
     )
     .join("");
   const cityPeople = cityCandidates();
@@ -525,7 +542,10 @@ function render() {
         `<div class="office-extra"><strong>辦公室 ${i + 2}</strong><label>名稱<input data-extra-field="label" data-extra="${i}" maxlength="40" value="${esc(ex.label || "")}" placeholder="例如：台中第二辦公室"></label><label>地址<input data-extra-field="address" data-extra="${i}" maxlength="80" value="${esc(ex.address || "")}" placeholder="完整面試地址"></label><label>上樓說明<input data-extra-field="arrival" data-extra="${i}" maxlength="160" value="${esc(ex.arrival || "")}"></label><button type="button" class="danger" data-act="remove-office" data-id="${i}">刪掉這個地址</button></div>`,
     )
     .join("");
-  const lineBox = `<div class="line-card"><h2>自動回 LINE 的訊息</h2><label>面試地點<input id="office-address" maxlength="80" value="${esc(office.address)}" placeholder="例如：台中市北屯區文心路四段698號6樓之1"></label><label>上樓說明<input id="office-arrival" maxlength="160" value="${esc(office.arrival)}"></label>${extraBox}<div class="line-actions"><button type="button" data-act="add-office">＋ 新增辦公室地址</button></div><p class="hint-card">台中若有第二個面試地點，按這裡新增地址。求職者選這個縣市後會再選要去哪一間。</p><p>求職者回「預約面試」會先問縣市，再看到下面這段「${esc(OFFICES[currentOfficeId()] || "")}」的約訪文案。可以直接改文字；改完按「儲存約訪文案」。面試地點只在預約成功後才會寄出。</p><textarea id="line-offer" class="line-copy" maxlength="4900">${esc(offer)}</textarea><div class="line-actions"><button class="primary" data-act="save-offer">儲存約訪文案</button></div>${remindRows ? `<h3>明天要提醒</h3><pre class="line-copy">${esc(composeReminder(reminders[0].interview_date, reminders[0].start_time, applyOfficeDetails(officeForCity(reminders[0].apply_city || "台中"), board)))}</pre><ul class="remind-list">${remindRows}</ul>` : `<p class="hint-card">明天沒有已排定的面試，因此不會發提醒。</p>`}</div>`;
+  const baseLabel = extraBox
+    ? `<label>辦公室 1 名稱<input id="office-label" maxlength="40" value="${esc(office.label)}" placeholder="例如：文心路"></label>`
+    : "";
+  const lineBox = `<div class="line-card"><h2>自動回 LINE 的訊息</h2>${baseLabel}<label>面試地點<input id="office-address" maxlength="80" value="${esc(office.address)}" placeholder="例如：台中市北屯區文心路四段698號6樓之1"></label><label>上樓說明<input id="office-arrival" maxlength="160" value="${esc(office.arrival)}"></label>${extraBox}<div class="line-actions"><button type="button" data-act="add-office">＋ 新增辦公室地址</button></div><p class="hint-card">有第二個面試地點時，按這裡新增地址，再到下面處長卡片按「改姓名／綁定LINE」設定他在哪個辦公室面試。求職者約到哪位處長的時段，就會收到那間辦公室的地址，並通知那位處長；LINE 約訪時段也會標出辦公室。</p><p>求職者回「預約面試」會先問縣市，再看到下面這段「${esc(OFFICES[currentOfficeId()] || "")}」的約訪文案。可以直接改文字；改完按「儲存約訪文案」。面試地點只在預約成功後才會寄出。</p><textarea id="line-offer" class="line-copy" maxlength="4900">${esc(offer)}</textarea><div class="line-actions"><button class="primary" data-act="save-offer">儲存約訪文案</button></div>${remindRows ? `<h3>明天要提醒</h3><pre class="line-copy">${esc(composeReminder(reminders[0].interview_date, reminders[0].start_time, applyOfficeDetails(officeForCity(reminders[0].apply_city || "台中"), board)))}</pre><ul class="remind-list">${remindRows}</ul>` : `<p class="hint-card">明天沒有已排定的面試，因此不會發提醒。</p>`}</div>`;
   $("#app").innerHTML = `<div class="studio"><div class="studio-hero"><h1>面試者與面試時間</h1><p>先選縣市，再把處長拉進格子。約訪文案與面試地點可在下面改，存檔後 LINE 會用那一段。</p></div>${renderStats()}<div class="week-toolbar"><div class="office-pills">${officePills}</div><div class="week-switch"><button data-act="week" data-id="${weekOffset - 1}">上一週</button><strong>${esc(weekLabel)}</strong><button data-act="week" data-id="${weekOffset + 1}">下一週</button></div><label>這個組每場最多幾人<input id="cap" type="number" min="1" max="99" value="${r.capacity}"></label></div>${renderSlotGrid(r)}${lineBox}<div class="candidate-panel"><div class="candidate-toolbar"><h2>面試者</h2><button class="primary" data-act="add-candidate">＋ 新增面試者</button><small>${esc(currentCity())} ${cityPeople.length} 人 · 已安排 ${cityPeople.filter((c) => activeBooking(c.id)).length} 場</small></div>${cityPeople.length ? `<table class="candidate-table"><thead><tr><th>姓名／LINE</th><th>職缺</th><th>面試時間</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : `<p>這個縣市還沒有面試者。求職者在 LINE 選「${esc(currentCity())}」後會出現在這裡，也可以按「新增面試者」手動填。</p>`}</div><div class="people-grid">${people}<button class="person-add" data-act="add-dir">＋ 新增處長或主管</button></div><div class="studio-foot"><button class="primary" data-act="save">儲存時間表</button><button data-act="reset">回復預設時段</button><small>時間表與面試者都在雲端，LINE 回覆會用這份時段。</small></div></div>`;
 }
 
@@ -540,8 +560,13 @@ function dirForm(d) {
   const bindBox = d?.notifyLine
     ? `<p class="hint-card">已綁定 LINE${d.notifyLineName ? "：" + esc(d.notifyLineName) : ""}。有人約到這位主管的時段會立刻通知，面試前一天與前兩小時再提醒一次。</p><button type="button" data-act="unbind-dir" data-id="${esc(d.id)}">解除綁定</button>`
     : `<p class="hint-card">請主管先加入星小鴻官方帳號，再傳「綁定 ${esc(code)}」。綁定後，面試者約到他的時段會 LINE 通知他。</p>`;
+  const branches = branchChoices(d?.officeId || r.officeId);
+  const branch = directorBranch({ ...d, officeId: d?.officeId || r.officeId });
+  const branchBox = branches.length
+    ? `<label>在哪個辦公室面試<select name="branchId">${branches.map((o) => `<option value="${esc(o.id)}" ${o.id === branch?.id ? "selected" : ""}>${esc(o.label)}（${esc(o.address)}）</option>`).join("")}</select></label>`
+    : "";
   modal(
-    `<h2>${d ? "修改處長資料" : "新增處長或主管"}</h2><form id="dir-form" data-id="${esc(d?.id || "")}" data-bind="${esc(code)}"><label>姓名<input name="name" value="${esc(d?.name || "")}" maxlength="40" required></label><label>處別／單位<input name="unit" value="${esc(d?.unit || "")}" maxlength="20" placeholder="例如：中一處"></label><label>職稱<select name="title">${["處長", "主管", "面試官"].map((t) => `<option ${t === (d?.title || "處長") ? "selected" : ""}>${t}</option>`).join("")}</select></label><label>面試地<select name="officeId">${Object.entries(OFFICES).map(([id, n]) => `<option value="${id}" ${id === (d?.officeId || r.officeId) ? "selected" : ""}>${n}</option>`).join("")}</select></label><label>面試哪一組<select name="pool"><option value="general" ${(d?.pool || r.pool) === "general" ? "selected" : ""}>一般職缺</option><option value="admin" ${(d?.pool || r.pool) === "admin" ? "selected" : ""}>行政</option></select></label><label>通知信箱<input name="notifyEmail" type="email" value="${esc(d?.notifyEmail || "")}"></label>${bindBox}<button class="primary">儲存這位處長</button></form>`,
+    `<h2>${d ? "修改處長資料" : "新增處長或主管"}</h2><form id="dir-form" data-id="${esc(d?.id || "")}" data-bind="${esc(code)}"><label>姓名<input name="name" value="${esc(d?.name || "")}" maxlength="40" required></label><label>處別／單位<input name="unit" value="${esc(d?.unit || "")}" maxlength="20" placeholder="例如：中一處"></label><label>職稱<select name="title">${["處長", "主管", "面試官"].map((t) => `<option ${t === (d?.title || "處長") ? "selected" : ""}>${t}</option>`).join("")}</select></label><label>面試地<select name="officeId">${Object.entries(OFFICES).map(([id, n]) => `<option value="${id}" ${id === (d?.officeId || r.officeId) ? "selected" : ""}>${n}</option>`).join("")}</select></label>${branchBox}<label>面試哪一組<select name="pool"><option value="general" ${(d?.pool || r.pool) === "general" ? "selected" : ""}>一般職缺</option><option value="admin" ${(d?.pool || r.pool) === "admin" ? "selected" : ""}>行政</option></select></label><label>通知信箱<input name="notifyEmail" type="email" value="${esc(d?.notifyEmail || "")}"></label>${bindBox}<button class="primary">儲存這位處長</button></form>`,
   );
 }
 
@@ -575,7 +600,7 @@ function openSlot(day, time, preselect) {
     })
     .join("");
   modal(
-    `<h2>${date}（星期${DAY[day]}） ${esc(rangeLabel(time))}</h2><p>${esc([dir?.unit, dir?.name].filter(Boolean).join(" ") || "尚未指定處長")} · 已排 ${seated.length}/${r.capacity}</p>${list ? `<ul>${list}</ul>` : "<p>這場還沒有人。</p>"}<form id="assign-form" data-day="${day}" data-time="${esc(time)}" data-date="${date}"><label>把誰排進來<select name="candidateId">${free.length ? free.map((c) => `<option value="${esc(c.id)}" ${c.id === preselect ? "selected" : ""}>${esc(c.name)} ${esc(c.phone || "")}</option>`).join("") : "<option value=''>請先新增面試者</option>"}</select></label><button class="primary" ${free.length ? "" : "disabled"}>排進這個時段</button></form><p><button type="button" data-act="add-candidate">＋ 新增面試者</button> <button type="button" data-act="edit-slot" data-id="${day}|${time}">改時間／處長</button></p>`,
+    `<h2>${date}（星期${DAY[day]}） ${esc(rangeLabel(time))}</h2><p>${esc([dir?.unit, dir?.name].filter(Boolean).join(" ") || "尚未指定處長")}${slotPlace(day, time) ? " · " + esc(slotPlace(day, time).label) : ""} · 已排 ${seated.length}/${r.capacity}</p>${list ? `<ul>${list}</ul>` : "<p>這場還沒有人。</p>"}<form id="assign-form" data-day="${day}" data-time="${esc(time)}" data-date="${date}"><label>把誰排進來<select name="candidateId">${free.length ? free.map((c) => `<option value="${esc(c.id)}" ${c.id === preselect ? "selected" : ""}>${esc(c.name)} ${esc(c.phone || "")}</option>`).join("") : "<option value=''>請先新增面試者</option>"}</select></label><button class="primary" ${free.length ? "" : "disabled"}>排進這個時段</button></form><p><button type="button" data-act="add-candidate">＋ 新增面試者</button> <button type="button" data-act="edit-slot" data-id="${day}|${time}">改時間／處長</button></p>`,
   );
 }
 
@@ -725,7 +750,7 @@ document.addEventListener("click", (e) => {
     const r = board.rules[board.officeIndex],
       [day, time] = v.split("|");
     r.isoWeekdays[day] = (r.isoWeekdays[day] || []).filter((t) => t !== time);
-    delete board.assignments[slotKey(r.officeId, r.pool, day, time)];
+    moveSlotMeta(slotKey(r.officeId, r.pool, day, time), "");
     if ($("#dialog").open) $("#dialog").close();
     persist();
     render();
@@ -798,6 +823,13 @@ document.addEventListener("change", (e) => {
     persist(true);
     render();
   }
+  if (e.target.id === "office-label") {
+    const id = currentOfficeId();
+    board.officeDetails = board.officeDetails || {};
+    board.officeDetails[id] = { ...(board.officeDetails[id] || {}), label: e.target.value.trim() };
+    persist(true);
+    render();
+  }
   if (e.target.dataset.extraField) {
     syncExtraField(e.target);
     persist(true);
@@ -849,6 +881,7 @@ document.addEventListener("submit", (e) => {
       notifyLine: prev.notifyLine || "",
       notifyLineName: prev.notifyLineName || "",
       bindCode: prev.bindCode || f.dataset.bind || newBindCode(),
+      branchId: branchChoices(data.officeId).some((o) => o.id === data.branchId) ? data.branchId : "",
     };
     const i = board.directors.findIndex((d) => d.id === next.id);
     if (i >= 0) board.directors[i] = next;
@@ -871,7 +904,7 @@ document.addEventListener("submit", (e) => {
     r.isoWeekdays[day] = r.isoWeekdays[day] || [];
     if (oldTime && oldTime !== time) {
       r.isoWeekdays[day] = r.isoWeekdays[day].filter((t) => t !== oldTime);
-      delete board.assignments[slotKey(r.officeId, r.pool, day, oldTime)];
+      moveSlotMeta(slotKey(r.officeId, r.pool, day, oldTime), "");
     }
     if (!r.isoWeekdays[day].includes(time)) r.isoWeekdays[day] = [...r.isoWeekdays[day], time].sort();
     board.assignments[slotKey(r.officeId, r.pool, day, time)] = data.directorId;
