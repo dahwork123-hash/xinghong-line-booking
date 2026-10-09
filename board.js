@@ -6,7 +6,7 @@ import {
   officeForCity,
   OFFICES as INTERVIEW_OFFICES,
   DEFAULT_CITY_RULES,
-} from "./source/src/chat-offer.js?v=offices2";
+} from "./source/src/chat-offer.js?v=offices3";
 
 const DAY = ["", "一", "二", "三", "四", "五", "六", "日"];
 const OFFICES = { taichung: "台中", hsinchu: "新竹", taoyuan: "桃園", changhua: "彰化", chiayi: "嘉義", nantou: "南投" };
@@ -173,9 +173,41 @@ const persist = (quiet) => {
     );
   }
   guarded(async () => {
-    await rpc("xinghong_save_schedule", { p_value: board });
+    const saved = await rpc("xinghong_save_schedule", { p_value: board });
+    if (syncBinds(saved?.directors)) render();
   });
 };
+
+function syncBinds(dirs) {
+  if (!Array.isArray(dirs)) return false;
+  let changed = false;
+  for (const d of board.directors || []) {
+    const s = dirs.find((x) => x.id === d.id);
+    if (!s) continue;
+    for (const k of ["notifyLine", "notifyLineName", "bindCode"]) {
+      if ((s[k] || "") !== (d[k] || "") && (k !== "bindCode" || s[k])) {
+        d[k] = s[k] || "";
+        changed = true;
+      }
+    }
+  }
+  if (changed) localStorage.setItem(KEY, JSON.stringify(board));
+  return changed;
+}
+
+async function refreshBinds() {
+  try {
+    const data = await rpc("xinghong_board");
+    if (syncBinds(data?.schedule?.directors)) {
+      if ($("#dialog").open) return;
+      render();
+    }
+  } catch {}
+}
+window.addEventListener("focus", refreshBinds);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") refreshBinds();
+});
 const group = (r) => board.directors.filter((d) => d.officeId === r.officeId && d.pool === r.pool);
 const directorLabel = (id) => {
   const d = board.directors.find((x) => x.id === id);
@@ -596,12 +628,15 @@ document.addEventListener("click", (e) => {
   if (a === "unbind-dir") {
     const d = board.directors.find((x) => x.id === v);
     if (d) {
-      d.notifyLine = "";
-      d.notifyLineName = "";
-      persist();
-      toast("已解除這位主管的 LINE 綁定。");
-      if ($("#dialog").open) dirForm(d);
-      else render();
+      guarded(async () => {
+        await rpc("xinghong_unbind_director_by_id", { p_id: d.id });
+        d.notifyLine = "";
+        d.notifyLineName = "";
+        localStorage.setItem(KEY, JSON.stringify(board));
+        toast("已解除這位主管的 LINE 綁定。");
+        if ($("#dialog").open) dirForm(d);
+        else render();
+      });
     }
     return;
   }
