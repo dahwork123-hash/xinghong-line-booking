@@ -5,10 +5,11 @@ import {
   applyOfficeDetails,
   officeForCity,
   officesForCity,
+  officeForSlot,
   slotPlaceLabeler,
   OFFICES as INTERVIEW_OFFICES,
   DEFAULT_CITY_RULES,
-} from "./source/src/chat-offer.js?v=dirplace1";
+} from "./source/src/chat-offer.js?v=human1";
 
 const DAY = ["", "一", "二", "三", "四", "五", "六", "日"];
 const OFFICES = { taichung: "台中", hsinchu: "新竹", taoyuan: "桃園", changhua: "彰化", chiayi: "嘉義", nantou: "南投" };
@@ -127,7 +128,9 @@ let reminders = [];
 let weekOffset = 0;
 let statsFrom = addDays(taipeiToday(), -29);
 let statsTo = taipeiToday();
-let stats = { people: 0, sessions: 0, days: [], cities: [] };
+let stats = { people: 0, sessions: 0, days: [], cities: [], rows: [], joined: [] };
+let statCity = "";
+let statDir = "";
 
 function ensureCities(next) {
   const have = new Set((next.rules || []).map((r) => r.officeId));
@@ -489,19 +492,164 @@ function directorForDayTime(day, start) {
   return directorForCityDayTime(currentOfficeId(), day, start);
 }
 
-function renderStats() {
-  const days = stats?.days || [];
-  const max = Math.max(1, ...days.map((d) => Number(d.people) || 0));
-  const bars = days
-    .map((d) => {
-      const n = Number(d.people) || 0;
-      return `<div class="stat-col" title="${esc(d.date)} ${n} 人"><span style="height:${Math.round((n / max) * 100)}%"></span><small>${esc(String(d.date).slice(5))}</small></div>`;
+function renderHumanQueue() {
+  const list = candidates
+    .filter((c) => c.human_requested_at)
+    .sort((a, b) => String(b.human_requested_at).localeCompare(String(a.human_requested_at)));
+  const when = (t) => new Date(t).toLocaleString("zh-TW", { timeZone: "Asia/Taipei", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
+  const rows = list
+    .map((c) => {
+      const paused = c.line_mode === "human";
+      const kind = c.human_kind === "contact" ? "按了聯絡同仁" : "問了機器人答不了的問題";
+      return `<tr><td>${esc(when(c.human_requested_at))}</td><td><strong>${esc(c.name || "未填")}</strong>${statAlias(c)}<small>${esc(c.phone || "未填電話")}</small></td><td>${esc(c.interview_city || c.apply_city || "—")}</td><td>${esc(kind)}${c.human_message && c.human_message !== "聯絡同仁" && c.human_message !== "轉人工" ? `<small class="human-msg">「${esc(c.human_message)}」</small>` : ""}</td><td>${paused ? '<span class="stat-badge paused">機器人已暫停</span>' : '<span class="stat-badge next">機器人照常回覆</span>'}</td><td><button class="primary" data-act="resolve-human" data-id="${esc(c.id)}">已處理</button></td></tr>`;
     })
     .join("");
-  const cities = (stats?.cities || [])
-    .map((c) => `<span>${esc(c.city)} ${Number(c.people) || 0}人</span>`)
+  return `<div class="stat-card human-queue${list.length ? " has-items" : ""}"><div class="stat-head"><h2>轉人工待處理</h2><small>${list.length ? `${list.length} 位面試者等同仁回覆` : "目前沒有待處理的面試者"}</small></div>${rows ? `<div class="stat-table"><table class="candidate-table"><thead><tr><th>時間</th><th>面試者</th><th>縣市</th><th>原因</th><th>機器人</th><th></th></tr></thead><tbody>${rows}</tbody></table></div><p class="hint-card">請到星小鴻官方帳號聊天室回覆面試者，回完按「已處理」就會從這裡移除，機器人也會恢復自動回覆。</p>` : ""}</div>`;
+}
+
+function statPassed(r) {
+  const today = taipeiToday();
+  return r.date < today || (r.date === today && String(r.start || "") <= taipeiNowHm());
+}
+function statDirector(r) {
+  return directorLabel(r.director_id) || r.director_label || "未指定";
+}
+function statPlace(r) {
+  if (!CITIES.includes(r.city)) return r.city || "未填";
+  if (officesForCity(r.city, board).length < 2) return r.city;
+  return r.city + "・" + officeForSlot(r.city, board, r.date, r.start, r.director_id).label;
+}
+function statWhen(r) {
+  return `${Number(String(r.date).slice(5, 7))}/${Number(String(r.date).slice(8, 10))}（${DAY[isoWeekday(r.date)]}）${r.start || ""}`;
+}
+function statFiltered() {
+  const rows = (stats?.rows || []).filter(
+    (r) => (!statCity || r.city === statCity) && (!statDir || r.director_id === statDir),
+  );
+  const joined = (stats?.joined || []).filter((c) => !statCity || c.city === statCity);
+  return { rows, joined };
+}
+function countPeople(rows, keyOf) {
+  const m = new Map();
+  for (const r of rows) {
+    const k = keyOf(r);
+    if (!m.has(k)) m.set(k, new Set());
+    m.get(k).add(r.candidate_id);
+  }
+  return [...m].map(([k, s]) => [k, s.size]).sort((a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0])));
+}
+const statAlias = (p) =>
+  p.line_name && p.line_name !== p.name && p.line_name !== "LINE面試者" ? `<small>LINE：${esc(p.line_name)}</small>` : "";
+const distinctPeople = (rows) => new Set(rows.map((r) => r.candidate_id)).size;
+
+function renderStats() {
+  const { rows, joined } = statFiltered();
+  const passed = rows.filter(statPassed);
+  const upcoming = rows.filter((r) => !statPassed(r));
+  const notBooked = joined.filter((c) => !c.has_booking);
+
+  const perDay = new Map();
+  for (const r of rows) {
+    if (!perDay.has(r.date)) perDay.set(r.date, new Set());
+    perDay.get(r.date).add(r.candidate_id);
+  }
+  const days = [];
+  for (let d = statsFrom; d <= statsTo && days.length < 400; d = addDays(d, 1)) days.push(d);
+  const max = Math.max(1, ...days.map((d) => perDay.get(d)?.size || 0));
+  const today = taipeiToday();
+  const bars = days
+    .map((d) => {
+      const n = perDay.get(d)?.size || 0;
+      return `<div class="stat-col${d === today ? " today" : ""}" title="${esc(d)}（${DAY[isoWeekday(d)]}）${n} 人"><em>${n || ""}</em><span style="height:${Math.round((n / max) * 100)}%"></span><small>${esc(d.slice(5))}</small></div>`;
+    })
     .join("");
-  return `<div class="stat-card"><h2>面試人數</h2><div class="stat-range"><label>從<input id="stat-from" type="date" value="${esc(statsFrom)}"></label><label>到<input id="stat-to" type="date" value="${esc(statsTo)}"></label></div><div class="stats"><div>這段期間人數<strong>${Number(stats?.people) || 0}</strong></div><div>面試場次<strong>${Number(stats?.sessions) || 0}</strong></div><div>各縣市<small>${cities || "這段期間沒有有效預約"}</small></div></div><div class="stat-chart">${bars}</div><p class="hint-card">依面試日期計算目前還在的預約。取消後就不會算進去。</p></div>`;
+
+  const dirRows = new Map();
+  for (const r of rows) {
+    const k = r.director_id || "";
+    if (!dirRows.has(k)) dirRows.set(k, []);
+    dirRows.get(k).push(r);
+  }
+  const dirTable = [...dirRows]
+    .map(([id, list]) => {
+      const d = board.directors.find((x) => x.id === id);
+      const branch = d ? directorBranch(d) : null;
+      return {
+        name: statDirector(list[0]),
+        place: d ? OFFICES[d.officeId] + (branch ? "・" + branch.label : "") : "",
+        total: distinctPeople(list),
+        passed: distinctPeople(list.filter(statPassed)),
+        upcoming: distinctPeople(list.filter((r) => !statPassed(r))),
+      };
+    })
+    .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name))
+    .map(
+      (x) =>
+        `<tr><td><strong>${esc(x.name)}</strong>${x.place ? `<small>${esc(x.place)}</small>` : ""}</td><td>${x.total}</td><td>${x.passed}</td><td>${x.upcoming}</td></tr>`,
+    )
+    .join("");
+  const chips = (pairs) =>
+    pairs.length ? pairs.map(([k, n]) => `<span>${esc(k || "未填")} <b>${n}</b> 人</span>`).join("") : "<span>—</span>";
+
+  const detail = rows
+    .map((r) => {
+      const done = statPassed(r);
+      const alias = statAlias(r);
+      return `<tr class="${done ? "is-past" : ""}"><td>${esc(statWhen(r))}${r.date === today ? ' <span class="tag-today">今天</span>' : ""}</td><td><strong>${esc(r.name || "未填")}</strong>${alias}</td><td>${esc(r.phone || "—")}</td><td>${esc(r.job || "—")}</td><td>${esc(statPlace(r))}</td><td>${esc(statDirector(r))}</td><td><span class="stat-badge ${done ? "past" : "next"}">${done ? "已過面試時間" : "待面試"}</span></td></tr>`;
+    })
+    .join("");
+  const waiting = notBooked
+    .map(
+      (c) =>
+        `<tr><td>${esc(String(c.joined_on).slice(5).replace("-", "/"))}</td><td><strong>${esc(c.name || "未填")}</strong>${statAlias(c)}</td><td>${esc(c.phone || "—")}</td><td>${esc(c.job || "—")}</td><td>${esc(c.city)}</td></tr>`,
+    )
+    .join("");
+
+  const cityOpts = ["", ...CITIES]
+    .map((c) => `<option value="${esc(c)}"${c === statCity ? " selected" : ""}>${c ? esc(c) : "全部縣市"}</option>`)
+    .join("");
+  const dirOpts = [
+    `<option value="">全部處長</option>`,
+    ...board.directors
+      .filter((d) => !statCity || OFFICES[d.officeId] === statCity)
+      .map(
+        (d) =>
+          `<option value="${esc(d.id)}"${d.id === statDir ? " selected" : ""}>${esc(OFFICES[d.officeId] + " " + [d.unit, d.name].filter(Boolean).join(" "))}</option>`,
+      ),
+  ].join("");
+  const scope = [statCity, statDir ? directorLabel(statDir) : ""].filter(Boolean).join("・") || "全部";
+
+  return `<div class="stat-card"><div class="stat-head"><h2>面試人數追蹤</h2><small>目前顯示：${esc(scope)}</small></div><div class="stat-range"><label>從<input id="stat-from" type="date" value="${esc(statsFrom)}"></label><label>到<input id="stat-to" type="date" value="${esc(statsTo)}"></label><label>縣市<select id="stat-city">${cityOpts}</select></label><label>處長<select id="stat-dir">${dirOpts}</select></label><button data-act="stat-export"${rows.length ? "" : " disabled"}>匯出 Excel</button></div><div class="stat-kpis"><div><span>新加入面試者</span><strong>${joined.length}</strong><small>${statDir ? "不分處長" : "這段期間加入"}</small></div><div><span>預約面試人數</span><strong>${distinctPeople(rows)}</strong><small>共 ${rows.length} 場</small></div><div><span>已過面試時間</span><strong>${distinctPeople(passed)}</strong><small>面試時間已到</small></div><div><span>待面試</span><strong>${distinctPeople(upcoming)}</strong><small>還沒到面試時間</small></div><div class="warn"><span>加入後還沒預約</span><strong>${notBooked.length}</strong><small>需要追蹤聯絡</small></div></div><div class="stat-chart">${bars}</div><div class="stat-breakdown"><div><h3>各處長</h3>${dirTable ? `<table class="candidate-table"><thead><tr><th>處長</th><th>預約</th><th>已過</th><th>待面試</th></tr></thead><tbody>${dirTable}</tbody></table>` : "<p>這段期間沒有預約。</p>"}</div><div><h3>各縣市</h3><p class="stat-chips">${chips(countPeople(rows, (r) => r.city))}</p><h3>各職缺</h3><p class="stat-chips">${chips(countPeople(rows, (r) => r.job))}</p></div></div><details class="stat-details" open><summary>面試者明細（${rows.length} 筆）</summary>${detail ? `<div class="stat-table"><table class="candidate-table"><thead><tr><th>面試時間</th><th>面試者</th><th>電話</th><th>職缺</th><th>地點</th><th>處長</th><th>狀態</th></tr></thead><tbody>${detail}</tbody></table></div>` : "<p>這段期間沒有預約。</p>"}</details><details class="stat-details"${notBooked.length ? " open" : ""}><summary>加入後還沒預約（${notBooked.length} 人）</summary>${waiting ? `<div class="stat-table"><table class="candidate-table"><thead><tr><th>加入日</th><th>面試者</th><th>電話</th><th>職缺</th><th>縣市</th></tr></thead><tbody>${waiting}</tbody></table></div>` : "<p>這段期間加入的人都已經預約。</p>"}</details><p class="hint-card">人數依面試日期計算，同一人約多場只算一人。面試者取消後預約會刪掉，不會算進來。「已過面試時間」只代表時間到了，系統沒有記錄是否實際到場。</p></div>`;
+}
+
+function exportStats() {
+  const { rows } = statFiltered();
+  const head = ["面試日期", "時間", "姓名", "LINE名稱", "電話", "職缺", "縣市", "地點", "處長", "狀態", "預約方式", "預約建立時間"];
+  const cell = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const lines = rows.map((r) =>
+    [
+      r.date,
+      `${r.start || ""}–${r.end || ""}`,
+      r.name,
+      r.line_name,
+      r.phone,
+      r.job,
+      r.city,
+      statPlace(r),
+      statDirector(r),
+      statPassed(r) ? "已過面試時間" : "待面試",
+      r.booked_via === "line" ? "LINE自動預約" : "同仁新增",
+      r.booked_at ? new Date(r.booked_at).toLocaleString("zh-TW", { timeZone: "Asia/Taipei" }) : "",
+    ]
+      .map(cell)
+      .join(","),
+  );
+  const blob = new Blob(["\ufeff" + [head.map(cell).join(","), ...lines].join("\r\n")], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `面試追蹤_${statsFrom}_${statsTo}.csv`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
 function render() {
@@ -518,7 +666,7 @@ function render() {
       const b = activeBooking(c.id);
       const when = b ? `${b.interview_date} ${b.start_time}–${b.end_time}` : "尚未安排";
       const lineMeta = [c.line_name, c.line_user_id].filter(Boolean).join(" · ");
-      return `<tr><td><strong>${esc(c.name)}</strong><small>${esc(c.phone || "未填電話")}</small>${lineMeta ? `<small>LINE ${esc(lineMeta)}</small>` : ""}${c.line_mode === "human" ? `<small class="human-flag">待處理：面試者有問題，機器人已停，請到官方帳號回覆</small>` : ""}</td><td>${esc(c.job)}<small>${esc(c.apply_city)} · ${esc(c.source)}</small></td><td>${esc(when)}<small>${esc(b?.director_label || "")}${b?.booked_via === "line" ? " · LINE自動預約" : ""}</small></td><td>${b ? `<button data-act="cancel-booking" data-id="${esc(b.id)}">取消預約</button>` : `<button class="primary" data-act="pick-slot" data-id="${esc(c.id)}">安排時段</button>`}${c.line_mode === "human" && c.line_user_id ? `<button data-act="resume-auto" data-id="${esc(c.line_user_id)}">恢復自動</button>` : ""}<button data-act="edit-candidate" data-id="${esc(c.id)}">改資料</button><button class="danger" data-act="delete-candidate" data-id="${esc(c.id)}">刪除</button></td></tr>`;
+      return `<tr><td><strong>${esc(c.name)}</strong><small>${esc(c.phone || "未填電話")}</small>${lineMeta ? `<small>LINE ${esc(lineMeta)}</small>` : ""}${c.human_requested_at || c.line_mode === "human" ? `<small class="human-flag">轉人工待處理：請到官方帳號回覆${c.line_mode === "human" ? "（機器人已暫停）" : ""}</small>` : ""}</td><td>${esc(c.job)}<small>${esc(c.apply_city)} · ${esc(c.source)}</small></td><td>${esc(when)}<small>${esc(b?.director_label || "")}${b?.booked_via === "line" ? " · LINE自動預約" : ""}</small></td><td>${b ? `<button data-act="cancel-booking" data-id="${esc(b.id)}">取消預約</button>` : `<button class="primary" data-act="pick-slot" data-id="${esc(c.id)}">安排時段</button>`}${c.line_mode === "human" && c.line_user_id ? `<button data-act="resume-auto" data-id="${esc(c.line_user_id)}">恢復自動</button>` : ""}<button data-act="edit-candidate" data-id="${esc(c.id)}">改資料</button><button class="danger" data-act="delete-candidate" data-id="${esc(c.id)}">刪除</button></td></tr>`;
     })
     .join("");
   const weekLabel = dateForDay(weekOffset, 1) + " ～ " + dateForDay(weekOffset, 7);
@@ -545,8 +693,10 @@ function render() {
   const baseLabel = extraBox
     ? `<label>辦公室 1 名稱<input id="office-label" maxlength="40" value="${esc(office.label)}" placeholder="例如：文心路"></label>`
     : "";
-  const lineBox = `<div class="line-card"><h2>自動回 LINE 的訊息</h2>${baseLabel}<label>面試地點<input id="office-address" maxlength="80" value="${esc(office.address)}" placeholder="例如：台中市北屯區文心路四段698號6樓之1"></label><label>上樓說明<input id="office-arrival" maxlength="160" value="${esc(office.arrival)}"></label>${extraBox}<div class="line-actions"><button type="button" data-act="add-office">＋ 新增辦公室地址</button></div><p class="hint-card">有第二個面試地點時，按這裡新增地址，再到下面處長卡片按「改姓名／綁定LINE」設定他在哪個辦公室面試。求職者約到哪位處長的時段，就會收到那間辦公室的地址，並通知那位處長；LINE 約訪時段也會標出辦公室。</p><p>求職者回「預約面試」會先問縣市，再看到下面這段「${esc(OFFICES[currentOfficeId()] || "")}」的約訪文案。可以直接改文字；改完按「儲存約訪文案」。面試地點只在預約成功後才會寄出。</p><textarea id="line-offer" class="line-copy" maxlength="4900">${esc(offer)}</textarea><div class="line-actions"><button class="primary" data-act="save-offer">儲存約訪文案</button></div>${remindRows ? `<h3>明天要提醒</h3><pre class="line-copy">${esc(composeReminder(reminders[0].interview_date, reminders[0].start_time, applyOfficeDetails(officeForCity(reminders[0].apply_city || "台中"), board)))}</pre><ul class="remind-list">${remindRows}</ul>` : `<p class="hint-card">明天沒有已排定的面試，因此不會發提醒。</p>`}</div>`;
-  $("#app").innerHTML = `<div class="studio"><div class="studio-hero"><h1>面試者與面試時間</h1><p>先選縣市，再把處長拉進格子。約訪文案與面試地點可在下面改，存檔後 LINE 會用那一段。</p></div>${renderStats()}<div class="week-toolbar"><div class="office-pills">${officePills}</div><div class="week-switch"><button data-act="week" data-id="${weekOffset - 1}">上一週</button><strong>${esc(weekLabel)}</strong><button data-act="week" data-id="${weekOffset + 1}">下一週</button></div><label>這個組每場最多幾人<input id="cap" type="number" min="1" max="99" value="${r.capacity}"></label></div>${renderSlotGrid(r)}${lineBox}<div class="candidate-panel"><div class="candidate-toolbar"><h2>面試者</h2><button class="primary" data-act="add-candidate">＋ 新增面試者</button><small>${esc(currentCity())} ${cityPeople.length} 人 · 已安排 ${cityPeople.filter((c) => activeBooking(c.id)).length} 場</small></div>${cityPeople.length ? `<table class="candidate-table"><thead><tr><th>姓名／LINE</th><th>職缺</th><th>面試時間</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : `<p>這個縣市還沒有面試者。求職者在 LINE 選「${esc(currentCity())}」後會出現在這裡，也可以按「新增面試者」手動填。</p>`}</div><div class="people-grid">${people}<button class="person-add" data-act="add-dir">＋ 新增處長或主管</button></div><div class="studio-foot"><button class="primary" data-act="save">儲存時間表</button><button data-act="reset">回復預設時段</button><small>時間表與面試者都在雲端，LINE 回覆會用這份時段。</small></div></div>`;
+  const humanDir = board.directors.find((d) => d.id === board.humanNotifyId);
+  const humanBox = `<label>轉人工時通知誰<select id="human-notify"><option value="">不通知</option>${board.directors.map((d) => `<option value="${esc(d.id)}" ${d.id === board.humanNotifyId ? "selected" : ""}>${esc([d.unit, d.name].filter(Boolean).join(" "))}${d.notifyLine ? "" : "（尚未綁定 LINE）"}</option>`).join("")}</select></label>${humanDir && !humanDir.notifyLine ? `<p class="hint-card">${esc(humanDir.name)} 還沒綁定 LINE，綁定後才收得到轉人工通知。</p>` : ""}`;
+  const lineBox = `<div class="line-card"><h2>自動回 LINE 的訊息</h2>${humanBox}${baseLabel}<label>面試地點<input id="office-address" maxlength="80" value="${esc(office.address)}" placeholder="例如：台中市北屯區文心路四段698號6樓之1"></label><label>上樓說明<input id="office-arrival" maxlength="160" value="${esc(office.arrival)}"></label>${extraBox}<div class="line-actions"><button type="button" data-act="add-office">＋ 新增辦公室地址</button></div><p class="hint-card">有第二個面試地點時，按這裡新增地址，再到下面處長卡片按「改姓名／綁定LINE」設定他在哪個辦公室面試。求職者約到哪位處長的時段，就會收到那間辦公室的地址，並通知那位處長；LINE 約訪時段也會標出辦公室。</p><p>求職者回「預約面試」會先問縣市，再看到下面這段「${esc(OFFICES[currentOfficeId()] || "")}」的約訪文案。可以直接改文字；改完按「儲存約訪文案」。面試地點只在預約成功後才會寄出。</p><textarea id="line-offer" class="line-copy" maxlength="4900">${esc(offer)}</textarea><div class="line-actions"><button class="primary" data-act="save-offer">儲存約訪文案</button></div>${remindRows ? `<h3>明天要提醒</h3><pre class="line-copy">${esc(composeReminder(reminders[0].interview_date, reminders[0].start_time, applyOfficeDetails(officeForCity(reminders[0].apply_city || "台中"), board)))}</pre><ul class="remind-list">${remindRows}</ul>` : `<p class="hint-card">明天沒有已排定的面試，因此不會發提醒。</p>`}</div>`;
+  $("#app").innerHTML = `<div class="studio"><div class="studio-hero"><h1>面試者與面試時間</h1><p>先選縣市，再把處長拉進格子。約訪文案與面試地點可在下面改，存檔後 LINE 會用那一段。</p></div>${renderHumanQueue()}${renderStats()}<div class="week-toolbar"><div class="office-pills">${officePills}</div><div class="week-switch"><button data-act="week" data-id="${weekOffset - 1}">上一週</button><strong>${esc(weekLabel)}</strong><button data-act="week" data-id="${weekOffset + 1}">下一週</button></div><label>這個組每場最多幾人<input id="cap" type="number" min="1" max="99" value="${r.capacity}"></label></div>${renderSlotGrid(r)}${lineBox}<div class="candidate-panel"><div class="candidate-toolbar"><h2>面試者</h2><button class="primary" data-act="add-candidate">＋ 新增面試者</button><small>${esc(currentCity())} ${cityPeople.length} 人 · 已安排 ${cityPeople.filter((c) => activeBooking(c.id)).length} 場</small></div>${cityPeople.length ? `<table class="candidate-table"><thead><tr><th>姓名／LINE</th><th>職缺</th><th>面試時間</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : `<p>這個縣市還沒有面試者。求職者在 LINE 選「${esc(currentCity())}」後會出現在這裡，也可以按「新增面試者」手動填。</p>`}</div><div class="people-grid">${people}<button class="person-add" data-act="add-dir">＋ 新增處長或主管</button></div><div class="studio-foot"><button class="primary" data-act="save">儲存時間表</button><button data-act="reset">回復預設時段</button><small>時間表與面試者都在雲端，LINE 回覆會用這份時段。</small></div></div>`;
 }
 
 function modal(html) {
@@ -639,6 +789,10 @@ document.addEventListener("click", (e) => {
   if (a === "week") {
     weekOffset = Number(v);
     render();
+    return;
+  }
+  if (a === "stat-export") {
+    exportStats();
     return;
   }
   if (a === "office") {
@@ -737,9 +891,19 @@ document.addEventListener("click", (e) => {
     toast("約訪文案已存到雲端。求職者選這個縣市後會看到這段。");
     return;
   }
+  if (a === "resolve-human") {
+    guarded(async () => {
+      await rpc("xinghong_resolve_human", { p_id: v });
+      await loadCloud();
+      toast("已標記為處理完成，機器人恢復自動回覆。");
+      render();
+    });
+    return;
+  }
   if (a === "resume-auto") {
     guarded(async () => {
-      await rpc("xinghong_set_line_mode", { p_line_user_id: v, p_mode: "auto", p_line_name: "" });
+      const lineName = candidates.find((c) => c.line_user_id === v)?.line_name || "";
+      await rpc("xinghong_set_line_mode", { p_line_user_id: v, p_mode: "auto", p_line_name: lineName });
       await loadCloud();
       toast("已恢復自動回覆。");
       render();
@@ -812,6 +976,16 @@ document.addEventListener("change", (e) => {
       render();
     });
   }
+  if (e.target.id === "stat-city") {
+    statCity = e.target.value;
+    const d = board.directors.find((x) => x.id === statDir);
+    if (d && statCity && OFFICES[d.officeId] !== statCity) statDir = "";
+    render();
+  }
+  if (e.target.id === "stat-dir") {
+    statDir = e.target.value;
+    render();
+  }
   if (e.target.id === "office-address" || e.target.id === "office-arrival") {
     const id = currentOfficeId();
     board.officeDetails = board.officeDetails || {};
@@ -822,6 +996,12 @@ document.addEventListener("change", (e) => {
     };
     persist(true);
     render();
+  }
+  if (e.target.id === "human-notify") {
+    board.humanNotifyId = e.target.value;
+    persist(true);
+    render();
+    toast(e.target.value ? "面試者轉人工時會 LINE 通知這位主管。" : "轉人工時不通知主管。");
   }
   if (e.target.id === "office-label") {
     const id = currentOfficeId();

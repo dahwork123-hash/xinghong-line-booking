@@ -188,7 +188,7 @@ export function looksLikeStaffQuestion(text) {
   const t = cleanLineText(text);
   if (t.length < 4) return false;
   if (CITIES.includes(t) || parseJob(t)) return false;
-  if (/禮拜|星期|週[一二三四五六日]|上午|下午|晚上|預約|時段|取消/.test(t)) return false;
+  if (/禮拜|星期|[週周][一二三四五六日1-7]|上午|下午|晚上|預約|時段|取消/.test(t)) return false;
   return /[嗎呢]|請問|想問|想了解|怎麼|如何|有問題|詢問|可以問/.test(t);
 }
 
@@ -226,7 +226,8 @@ export function looksLikePersonName(text) {
   const t = String(text || "").replace(/\s+/g, "");
   if (t.length < 2 || t.length > 20) return false;
   if (CITIES.includes(t) || parseJob(t)) return false;
-  if (/預約|面試|取消|聯絡|常見|綁定|工作內容|薪資|工時|禮拜|星期|週[一二三四五六日]|上午|下午|晚上/.test(t)) return false;
+  if (/預約|面試|取消|聯絡|常見|綁定|工作內容|薪資|工時|禮拜|星期|[週周][一二三四五六日1-7]|上午|下午|晚上|可以|下個?[週周]/.test(t)) return false;
+  if (YES_REPLY.test(t)) return false;
   if (normalizePhone(t)) return false;
   if (/[A-Za-z0-9]{8,}/.test(t)) return false;
   return true;
@@ -274,7 +275,7 @@ export function ruleForCity(schedule, city) {
 }
 
 const DAY_ZH = ["", "一", "二", "三", "四", "五", "六", "日"];
-const ZH_DAY = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 日: 7, 天: 7 };
+const ZH_DAY = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 日: 7, 天: 7, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7 };
 const ZH_NUM = {
   零: 0,
   〇: 0,
@@ -451,6 +452,36 @@ function upcomingDate(isoDay, today, start, nowHm) {
   return date;
 }
 
+function nextWeekDate(isoDay, today) {
+  return addDays(today, 7 - weekday(today) + isoDay);
+}
+
+const YES_REPLY = /^(可以|可|好|好的|好喔|好唷|ok|okay|沒問題|行|可以的|可以喔|可以唷|可以呀|可以啊|確定)$/i;
+const NEXT_WEEK_REPLY = /^(預約)?下個?(周|週|禮拜|星期)(的)?(可以|好)?$/;
+
+export function parseQuickReply(text, { today, nowHm = "00:00", isoWeekdays = {} } = {}) {
+  if (!today) return null;
+  const slots = [];
+  for (let day = 1; day <= 7; day++) {
+    for (const s of slotsOf(isoWeekdays, day)) slots.push({ ...s, day });
+  }
+  if (slots.length !== 1) return null;
+  const [slot] = slots;
+  const t = cleanLineText(text).replace(/[!！。.～~]+$/, "");
+  let date = null;
+  if (YES_REPLY.test(t)) date = upcomingDate(slot.day, today, slot.start, nowHm);
+  else if (NEXT_WEEK_REPLY.test(t)) date = nextWeekDate(slot.day, today);
+  if (!date) return null;
+  return {
+    ok: true,
+    isoDay: slot.day,
+    date,
+    start: slot.start,
+    end: slot.end,
+    label: `禮拜${DAY_ZH[slot.day]} ${zhClock(slot.start)}`,
+  };
+}
+
 function matchSlot(slots, wanted) {
   const exact = slots.find((s) => s.start === wanted);
   if (exact) return exact;
@@ -468,31 +499,37 @@ export function parseTimeReply(
     isoWeekdays = DEFAULT_TAICHUNG_WEEK,
   } = {},
 ) {
-  const raw = String(text || "").replace(/\s+/g, "");
+  const raw = String(text || "")
+    .replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
+    .replace(/：/g, ":")
+    .replace(/\s+/g, "");
   if (!today) return { ok: false, reason: "NO_TIME" };
 
   let isoDay = null;
   if (/今天|今日/.test(raw)) isoDay = weekday(today);
   else if (/明天|明日/.test(raw)) isoDay = weekday(addDays(today, 1));
+  else if (/後天/.test(raw)) isoDay = weekday(addDays(today, 2));
   else {
-    const dayHit = raw.match(/(?:禮拜|星期|週)([一二三四五六日天])/);
+    const dayHit = raw.match(/(?:禮拜|星期|週|周)([一二三四五六日天1-7])/);
     if (dayHit) isoDay = ZH_DAY[dayHit[1]];
   }
 
   let period = null;
-  if (/早上|上午/.test(raw)) period = "am";
-  else if (/下午|晚上/.test(raw)) period = "pm";
+  if (/早上|上午|am/i.test(raw)) period = "am";
+  else if (/下午|晚上|pm/i.test(raw)) period = "pm";
 
+  const timeText = raw.replace(/(?:禮拜|星期|週|周)[一二三四五六日天1-7]/, "");
   let hour = null;
-  const clock = raw.match(/(\d{1,2}):(\d{2})/);
+  const clock = timeText.match(/(\d{1,2}):(\d{2})/);
   let wanted = null;
   if (clock) {
-    wanted =
-      String(Number(clock[1])).padStart(2, "0") +
-      ":" +
-      clock[2];
+    let h = Number(clock[1]);
+    if (period === "pm" && h < 12) h += 12;
+    wanted = String(h).padStart(2, "0") + ":" + clock[2];
   } else {
-    const point = raw.match(/([0-9一二三四五六七八九十兩]{1,3})點/);
+    const point =
+      timeText.match(/([0-9一二三四五六七八九十兩]{1,3})[點点時]/) ||
+      timeText.match(/(\d{1,2})(?:am|pm)/i);
     if (point) hour = parseZhInt(point[1]);
     wanted = hourToStart(hour, period);
   }
@@ -508,7 +545,9 @@ export function parseTimeReply(
   }
   if (!slot) return { ok: false, reason: "NO_SLOT" };
 
-  const date = upcomingDate(isoDay, today, slot.start, nowHm);
+  const date = /下個?(?:禮拜|星期|週|周)/.test(raw)
+    ? nextWeekDate(isoDay, today)
+    : upcomingDate(isoDay, today, slot.start, nowHm);
   return {
     ok: true,
     isoDay,
@@ -549,6 +588,24 @@ export function composeFaqMenu() {
 
 export function composeHuman() {
   return "好的，這個問題由招募同仁協助您，請稍候。";
+}
+
+export function composeContactStaff() {
+  return "好的，已通知招募同仁，會盡快與您聯絡。\n要預約面試也可以直接回「預約面試」。";
+}
+
+export function composeHumanNotice(person = {}, message = "", { paused = true } = {}) {
+  return [
+    "【面試者轉人工】",
+    `姓名：${person.name || "未填"}`,
+    `手機：${person.phone || "未填"}`,
+    person.line_name ? `LINE名稱：${person.line_name}` : "",
+    person.apply_city ? `縣市：${person.apply_city}` : "",
+    message ? `訊息：${String(message).slice(0, 300)}` : "",
+    paused ? "機器人已暫停，請到星小鴻官方帳號聊天室回覆。" : "面試者按了聯絡同仁，請到星小鴻官方帳號聊天室回覆。",
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 export function composeDirectorNotice(kind, row = {}, office = TAICHUNG_OFFICE) {
@@ -631,14 +688,22 @@ export function classifyLineText(text) {
   return { kind: "chat" };
 }
 
-export function buildLineReply({
+const RESUME_KINDS = ["offer", "mine", "cancel"];
+
+export function buildLineReply(options = {}) {
+  if (!options.humanMode) return replyFor(options);
+  if (!RESUME_KINDS.includes(classifyLineText(options.text).kind)) return { text: "", silent: true, actions: [] };
+  const reply = replyFor(options);
+  return { ...reply, actions: [{ type: "auto" }, ...(reply.actions || [])] };
+}
+
+function replyFor({
   text,
   today,
   nowHm = "00:00",
   isoWeekdays = DEFAULT_TAICHUNG_WEEK,
   office = TAICHUNG_OFFICE,
   booking = null,
-  humanMode = false,
   customOffer = "",
   applyCity = "",
   interviewCity = "",
@@ -646,7 +711,6 @@ export function buildLineReply({
   profile = null,
   pending = null,
 } = {}) {
-  if (humanMode) return { text: "", silent: true, actions: [] };
   if (!isActiveBooking(booking, today, nowHm)) booking = null;
 
   const intent = classifyLineText(text);
@@ -714,7 +778,7 @@ export function buildLineReply({
   if (intent.kind === "faq-salary") return { text: FAQ_TEXTS.salary, actions: [] };
   if (intent.kind === "faq-office") return { text: FAQ_TEXTS.office, actions: [] };
   if (intent.kind === "faq-nantou") return { text: FAQ_TEXTS.nantou, actions: [] };
-  if (intent.kind === "human") return { text: composeHuman(), actions: [{ type: "human" }] };
+  if (intent.kind === "human") return { text: composeContactStaff(), actions: [{ type: "notify_human" }] };
   if (intent.kind === "cancel") {
     if (!booking) return { text: composeMine(null, cityOffice), actions: [] };
     return { text: "已幫您取消這次面試。若要再約，請回「預約面試」。", actions: [{ type: "cancel" }] };
@@ -775,7 +839,9 @@ export function buildLineReply({
   if (gap === "job" && intent.kind === "chat") {
     return askGap("job", "請從下列選一個職位。\n\n");
   }
-  const picked = parseTimeReply(text, { today, nowHm, isoWeekdays: ctx.isoWeekdays });
+  const picked =
+    (knownCity && parseQuickReply(text, { today, nowHm, isoWeekdays: ctx.isoWeekdays })) ||
+    parseTimeReply(text, { today, nowHm, isoWeekdays: ctx.isoWeekdays });
   if (picked.ok) {
     if (waitingNantou || !knownCity) return waitingNantou ? { text: composeAskNantouInterview(), actions: [] } : askCity();
     if (!isBookable(picked.date, picked.start, today, nowHm)) {

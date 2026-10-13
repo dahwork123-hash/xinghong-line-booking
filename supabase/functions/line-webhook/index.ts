@@ -115,10 +115,10 @@ const lastInterviewByUser = new Map();
 async function applyActions(sb, schedule, userId, displayName, result, parseSlotTime) {
   let booked = null;
   for (const action of result.actions || []) {
-    if (action.type === "human") {
+    if (action.type === "human" || action.type === "auto") {
       await sb.rpc("xinghong_set_line_mode", {
         p_line_user_id: userId,
-        p_mode: "human",
+        p_mode: action.type,
         p_line_name: displayName,
       });
     }
@@ -238,6 +238,13 @@ async function notifyDirectorBooked(token, sb, chat, schedule, booked, candidate
   }
 }
 
+async function notifyHuman(token, chat, schedule, candidate, displayName, text, paused) {
+  const director = chat.directorById(schedule, schedule?.humanNotifyId);
+  if (!director?.notifyLine) return;
+  const person = { ...(candidate || {}), line_name: candidate?.line_name || displayName };
+  await linePush(token, director.notifyLine, chat.composeHumanNotice(person, text, { paused }));
+}
+
 async function handleBind(sb, token, replyToken, userId, displayName, bind) {
   if (bind.kind === "unbind") {
     await sb.rpc("xinghong_unbind_director", { p_line_user_id: userId });
@@ -287,7 +294,17 @@ async function handleEvents(token, events) {
     const userId = event.source?.userId;
     const replyToken = event.replyToken;
     if (!userId) continue;
-    if (event.type === "follow") continue;
+    if (event.type === "follow") {
+      const { candidate } = await loadBoard(sb, userId, isActiveBooking, taipeiToday(), taipeiNowHm());
+      if (candidate?.line_mode === "human") {
+        await sb.rpc("xinghong_set_line_mode", {
+          p_line_user_id: userId,
+          p_mode: "auto",
+          p_line_name: candidate.line_name || (await lineName(token, userId)),
+        });
+      }
+      continue;
+    }
     if (event.type !== "message" || event.message?.type !== "text") continue;
     const text = event.message.text || "";
     const displayName = await lineName(token, userId);
@@ -350,6 +367,17 @@ async function handleEvents(token, events) {
     if (booked) {
       const fresh = await loadBoard(sb, userId, isActiveBooking, taipeiToday(), taipeiNowHm());
       await notifyDirectorBooked(token, sb, chat, fresh.schedule || schedule, booked, fresh.candidate || candidate);
+    }
+    const notice = (result.actions || []).find((a) => a.type === "human" || a.type === "notify_human");
+    if (notice) {
+      const { error } = await sb.rpc("xinghong_request_human", {
+        p_line_user_id: userId,
+        p_line_name: displayName,
+        p_message: text,
+        p_kind: notice.type === "human" ? "question" : "contact",
+      });
+      if (error) console.error("xinghong_request_human", error);
+      await notifyHuman(token, chat, schedule, candidate, displayName, text, notice.type === "human");
     }
     await lineReply(token, replyToken, result.text);
   }

@@ -5,6 +5,7 @@ import {
   composeConfirm,
   composeReminder,
   composeDirectorNotice,
+  composeHumanNotice,
   composeAskJob,
   parseTimeReply,
   buildLineReply,
@@ -43,6 +44,64 @@ test("parses natural-language time replies onto the matching slot", () => {
   assert.equal(picked.date, "2026-09-14");
   assert.equal(picked.start, "14:00");
   assert.equal(picked.end, "16:00");
+});
+
+test("accepts weekdays and hours written in Chinese, Arabic or full-width digits", () => {
+  const opts = { today: "2026-09-11", nowHm: "22:00", isoWeekdays: DEFAULT_TAICHUNG_WEEK };
+  const friday4 = [
+    "禮拜5下午4點",
+    "禮拜五下午四點",
+    "星期5 下午4點",
+    "週五 4點",
+    "周5下午4點",
+    "禮拜５下午４點",
+    "禮拜5 4點",
+    "禮拜五 16:00",
+    "禮拜五下午4:00",
+    "禮拜五 4pm",
+    "禮拜五下午4时".replace("时", "時"),
+  ];
+  for (const text of friday4) {
+    const picked = parseTimeReply(text, opts);
+    assert.equal(picked.ok, true, text);
+    assert.equal(picked.date, "2026-09-18", text);
+    assert.equal(picked.start, "16:00", text);
+  }
+  const monday11 = parseTimeReply("禮拜1上午11點", opts);
+  assert.equal(monday11.start, "11:00");
+  assert.equal(monday11.date, "2026-09-14");
+  const sunday = parseTimeReply("禮拜7下午2點", opts);
+  assert.equal(sunday.ok, false);
+});
+
+test("彰化 single slot: 可以 books the coming one, 預約下周 books next week", () => {
+  const schedule = {
+    rules: [
+      { officeId: "taichung", pool: "general", capacity: 5, isoWeekdays: DEFAULT_TAICHUNG_WEEK },
+      { officeId: "changhua", pool: "general", capacity: 5, isoWeekdays: { 4: ["14:00-16:00"] } },
+    ],
+  };
+  const base = { today: "2026-10-13", nowHm: "10:00", applyCity: "彰化", schedule, profile: { profileOk: true } };
+  const book = (text, extra = {}) => {
+    const r = buildLineReply({ ...base, ...extra, text });
+    return r.actions.find((a) => a.type === "book")?.picked;
+  };
+
+  const yes = buildLineReply({ ...base, text: "可以" });
+  assert.match(yes.text, /10\/15（禮拜四）下午2點/);
+  assert.match(yes.text, /華山路37號/);
+  assert.equal(book("可以！").date, "2026-10-15");
+  assert.equal(book("好").date, "2026-10-15");
+  assert.equal(book("預約下周").date, "2026-10-22");
+  assert.equal(book("下週").date, "2026-10-22");
+  assert.equal(book("下禮拜").date, "2026-10-22");
+  assert.equal(book("下週四下午2點").date, "2026-10-22");
+  assert.equal(book("禮拜四下午2點").date, "2026-10-15");
+
+  assert.equal(book("可以", { today: "2026-10-15", nowHm: "15:00" }).date, "2026-10-22");
+
+  const taichung = buildLineReply({ ...base, applyCity: "台中", text: "可以" });
+  assert.equal(taichung.actions.find((a) => a.type === "book"), undefined);
 });
 
 test("uses this week's weekday when that slot is still upcoming", () => {
@@ -84,10 +143,18 @@ test("keeps today's slot before the one-hour cutoff", () => {
 test("combines rich-menu commands with natural-language booking", () => {
   assert.equal(classifyLineText("常見問題").kind, "faq");
   assert.equal(classifyLineText("聯絡同仁").kind, "human");
+  const contact = buildLineReply({ text: "聯絡同仁", today: "2026-09-13" });
+  assert.deepEqual(contact.actions, [{ type: "notify_human" }]);
+  assert.match(contact.text, /已通知招募同仁/);
   const faq = buildLineReply({ text: "工作內容", today: "2026-09-13" });
   assert.match(faq.text, /社會住宅/);
-  const paused = buildLineReply({ text: "預約面試", today: "2026-09-13", humanMode: true });
+  const paused = buildLineReply({ text: "請問薪水多少", today: "2026-09-13", humanMode: true });
   assert.equal(paused.silent, true);
+  const resumed = buildLineReply({ text: "預約面試", today: "2026-09-13", humanMode: true });
+  assert.match(resumed.text, /哪個縣市/);
+  assert.equal(resumed.actions[0].type, "auto");
+  const mineResumed = buildLineReply({ text: "我的預約", today: "2026-09-13", humanMode: true });
+  assert.equal(mineResumed.actions[0].type, "auto");
   const ask = buildLineReply({ text: "預約面試", today: "2026-09-13" });
   assert.match(ask.text, /哪個縣市/);
   assert.equal(ask.actions.length, 0);
@@ -443,4 +510,17 @@ test("director notices include applicant name phone and job", () => {
   assert.match(text, /社宅顧問/);
   assert.match(text, /環北路400號13樓之六/);
   assert.match(composeDirectorNotice("twoh", { name: "王小明", interview_date: "2026-09-16", start_time: "14:00" }), /兩小時後/);
+});
+
+test("轉人工 notice tells staff who asked and what they said", () => {
+  const text = composeHumanNotice(
+    { name: "王小明", phone: "0912345678", line_name: "小明", apply_city: "台中" },
+    "請問面試要帶什麼嗎",
+  );
+  assert.match(text, /【面試者轉人工】/);
+  assert.match(text, /王小明/);
+  assert.match(text, /0912345678/);
+  assert.match(text, /LINE名稱：小明/);
+  assert.match(text, /訊息：請問面試要帶什麼嗎/);
+  assert.match(composeHumanNotice({}, ""), /姓名：未填/);
 });
