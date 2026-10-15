@@ -485,6 +485,7 @@ export function parseQuickReply(text, { today, nowHm = "00:00", isoWeekdays = {}
 function matchSlot(slots, wanted) {
   const exact = slots.find((s) => s.start === wanted);
   if (exact) return exact;
+  if (!wanted.endsWith(":00")) return null;
   const hour = wanted.slice(0, 2);
   const sameHour = slots.filter((s) => s.start.startsWith(hour + ":"));
   if (sameHour.length === 1) return sameHour[0];
@@ -520,18 +521,24 @@ export function parseTimeReply(
 
   const timeText = raw.replace(/(?:禮拜|星期|週|周)[一二三四五六日天1-7]/, "");
   let hour = null;
+  let minute = 0;
   const clock = timeText.match(/(\d{1,2}):(\d{2})/);
   let wanted = null;
+  const withMinute = (start) => (start ? start.slice(0, 3) + String(minute).padStart(2, "0") : null);
   if (clock) {
     let h = Number(clock[1]);
     if (period === "pm" && h < 12) h += 12;
     wanted = String(h).padStart(2, "0") + ":" + clock[2];
   } else {
     const point =
-      timeText.match(/([0-9一二三四五六七八九十兩]{1,3})[點点時]/) ||
+      timeText.match(/([0-9一二三四五六七八九十兩]{1,3})[點点時](半|[0-9一二三四五六七八九十]{1,3}分?)?/) ||
       timeText.match(/(\d{1,2})(?:am|pm)/i);
-    if (point) hour = parseZhInt(point[1]);
-    wanted = hourToStart(hour, period);
+    if (point) {
+      hour = parseZhInt(point[1]);
+      const tail = point[2] || "";
+      minute = tail === "半" ? 30 : tail ? parseZhInt(tail.replace("分", "")) : 0;
+    }
+    wanted = minute != null && minute < 60 ? withMinute(hourToStart(hour, period)) : null;
   }
 
   if (isoDay == null || !wanted) return { ok: false, reason: "NO_TIME" };
@@ -541,7 +548,7 @@ export function parseTimeReply(
 
   let slot = matchSlot(slots, wanted);
   if (!slot && !period && hour != null && hour <= 9) {
-    slot = matchSlot(slots, hourToStart(hour, "am"));
+    slot = matchSlot(slots, withMinute(hourToStart(hour, "am")));
   }
   if (!slot) return { ok: false, reason: "NO_SLOT" };
 

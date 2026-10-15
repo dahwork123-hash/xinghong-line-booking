@@ -46,6 +46,28 @@ test("parses natural-language time replies onto the matching slot", () => {
   assert.equal(picked.end, "16:00");
 });
 
+test("a half-past or minute reply never books the whole-hour slot", () => {
+  const chiayi = { 3: ["16:00-18:00"], 4: ["16:00-18:00"] };
+  const opts = { today: "2026-10-14", nowHm: "19:00", isoWeekdays: chiayi };
+  for (const text of ["禮拜四，下午4點半", "禮拜四下午四點半", "禮拜四 16:30", "禮拜四下午4點15分", "禮拜四下午4點三十"]) {
+    assert.equal(parseTimeReply(text, opts).ok, false, text);
+  }
+  assert.equal(parseTimeReply("禮拜四下午4點", opts).start, "16:00");
+  const half = { 4: ["16:30-18:30"] };
+  assert.equal(parseTimeReply("禮拜四下午4點半", { ...opts, isoWeekdays: half }).start, "16:30");
+  assert.equal(parseTimeReply("禮拜四下午4點", { ...opts, isoWeekdays: half }).start, "16:30");
+  const reply = buildLineReply({
+    text: "禮拜四，下午4點半",
+    today: "2026-10-14",
+    nowHm: "19:00",
+    applyCity: "嘉義",
+    interviewCity: "嘉義",
+    profile: { profileOk: true },
+  });
+  assert.ok(!reply.actions.some((a) => a.type === "book"));
+  assert.match(reply.text, /沒有對到可預約的時段/);
+});
+
 test("accepts weekdays and hours written in Chinese, Arabic or full-width digits", () => {
   const opts = { today: "2026-09-11", nowHm: "22:00", isoWeekdays: DEFAULT_TAICHUNG_WEEK };
   const friday4 = [
