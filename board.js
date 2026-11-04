@@ -9,7 +9,8 @@ import {
   slotPlaceLabeler,
   OFFICES as INTERVIEW_OFFICES,
   DEFAULT_CITY_RULES,
-} from "./source/src/chat-offer.js?v=human1";
+  DEFAULT_TAICHUNG_WEEK,
+} from "./source/src/chat-offer.js?v=sched2";
 
 const DAY = ["", "一", "二", "三", "四", "五", "六", "日"];
 const OFFICES = { taichung: "台中", hsinchu: "新竹", taoyuan: "桃園", changhua: "彰化", chiayi: "嘉義", nantou: "南投" };
@@ -21,6 +22,21 @@ const SB = createClient(
   "sb_publishable__436wSaJmMI04vWqRSYAug_AQ0Jo5Lm",
 );
 const KEY = "xinghong-pages-board-v4";
+/** 台中目前標準排班：文心路／台中路 × 處長 */
+const DEFAULT_TAICHUNG_ASSIGNMENTS = {
+  "taichung|general|1|11:00": "zhong-5",
+  "taichung|general|1|14:00": "zhong-1",
+  "taichung|general|2|11:00": "zhong-4",
+  "taichung|general|2|14:00": "zhong-6",
+  "taichung|general|2|16:00": "zhong-3",
+  "taichung|general|3|14:00": "zhong-5",
+  "taichung|general|3|16:00": "zhong-3",
+  "taichung|general|4|11:00": "zhong-6",
+  "taichung|general|4|14:00": "zhong-2",
+  "taichung|general|4|16:00": "zhong-1",
+  "taichung|general|5|14:00": "zhong-4",
+  "taichung|general|5|16:00": "zhong-2",
+};
 const seed = {
   directors: [
     { id: "zhong-1", name: "黃岳澤", title: "處長", unit: "中一處", officeId: "taichung", pool: "general", notifyEmail: "", notifyLine: "" },
@@ -98,29 +114,34 @@ function dateForDay(weekOffset, day) {
 }
 
 const defaults = () => {
-  const assignments = {};
-  for (const r of seed.rules)
-    for (const [day, times] of Object.entries(r.isoWeekdays))
+  const assignments = { ...DEFAULT_TAICHUNG_ASSIGNMENTS };
+  for (const r of seed.rules) {
+    if (r.officeId === "taichung" && r.pool === "general") continue;
+    for (const [day, times] of Object.entries(r.isoWeekdays || {}))
       for (const time of times) {
         const dir = seed.directors.find((d) => d.officeId === r.officeId && d.pool === r.pool);
         if (dir) assignments[slotKey(r.officeId, r.pool, day, time)] = dir.id;
       }
+  }
   return {
     directors: structuredClone(seed.directors),
     rules: structuredClone(seed.rules),
     assignments,
+    closedDates: [],
     officeIndex: 0,
     slotHours: 2,
   };
 };
 
 let board = defaults();
+let dirty = false;
 try {
   const saved = JSON.parse(localStorage.getItem(KEY) || "null");
-  if (saved?.directors && saved?.rules) board = { ...defaults(), ...saved };
+  if (saved?.directors && saved?.rules) board = { ...defaults(), ...saved, closedDates: saved.closedDates || [] };
 } catch {}
 ensureCities(board);
 ensureBindCodes(board);
+board.closedDates = Array.isArray(board.closedDates) ? board.closedDates.map(String) : [];
 
 let candidates = [];
 let bookings = [];
@@ -146,6 +167,7 @@ function ensureCities(next) {
   if (next.officeIndex >= next.rules.length) next.officeIndex = 0;
   next.lineOffers = next.lineOffers || {};
   next.officeDetails = next.officeDetails || {};
+  next.closedDates = Array.isArray(next.closedDates) ? next.closedDates.map(String) : [];
   return added;
 }
 
@@ -168,15 +190,26 @@ function ensureBindCodes(next) {
   return added;
 }
 
+function syncOfferFromSchedule() {
+  const id = currentOfficeId();
+  const text = composeOffer(weekdays(), currentOffice(), slotPlaceLabeler(currentCity(), board));
+  board.lineOffers = board.lineOffers || {};
+  board.lineOffers[id] = text;
+  if (id === "taichung") board.lineOffer = text;
+}
+
+function markDirty(msg) {
+  dirty = true;
+  syncOfferFromSchedule();
+  localStorage.setItem(KEY, JSON.stringify(board));
+  if (msg) toast(msg + "（尚未儲存，請按最下方「儲存時間表」）");
+  render();
+}
+
 const persist = (quiet) => {
   localStorage.setItem(KEY, JSON.stringify(board));
-  if (!quiet) {
-    toast(
-      currentOfferSaved()
-        ? "時間表已更新。約訪文案仍用你改過的版本。"
-        : "時間表已更新。LINE 約訪訊息會跟這份時段走。",
-    );
-  }
+  dirty = false;
+  if (!quiet) toast("時間表已儲存。LINE 約訪會用這份時段與文案。");
   guarded(async () => {
     const saved = await rpc("xinghong_save_schedule", { p_value: board });
     if (syncBinds(saved?.directors)) render();
@@ -248,7 +281,9 @@ async function loadCloud() {
     candidates = data?.candidates || [];
     bookings = data?.bookings || [];
     if (data?.schedule?.directors && data?.schedule?.rules) {
-      board = { ...defaults(), ...data.schedule };
+      board = { ...defaults(), ...data.schedule, closedDates: data.schedule.closedDates || [] };
+      board.closedDates = Array.isArray(board.closedDates) ? board.closedDates.map(String) : [];
+      dirty = false;
       const addedCities = ensureCities(board);
       const addedCodes = ensureBindCodes(board);
       localStorage.setItem(KEY, JSON.stringify(board));
@@ -256,6 +291,8 @@ async function loadCloud() {
     } else {
       ensureCities(board);
       ensureBindCodes(board);
+      board.closedDates = board.closedDates || [];
+      dirty = false;
       await rpc("xinghong_save_schedule", { p_value: board });
     }
     reminders = (await rpc("xinghong_due_reminders")) || [];
@@ -361,9 +398,7 @@ function assignDirectorToCell(day, hour, directorId) {
   });
   if (covering) {
     board.assignments[slotKey(r.officeId, r.pool, day, covering)] = dir.id;
-    persist();
-    render();
-    toast(`${dir.name} 改排在星期${DAY[day]} ${rangeLabel(covering)}。`);
+    markDirty(`${dir.name} 改排在星期${DAY[day]} ${rangeLabel(covering)}`);
     return;
   }
   const hours = board.slotHours === 1 ? 1 : 2;
@@ -379,9 +414,7 @@ function assignDirectorToCell(day, hour, directorId) {
   const time = rangeToken(hour, end);
   r.isoWeekdays[day] = [...(r.isoWeekdays[day] || []), time].sort();
   board.assignments[slotKey(r.officeId, r.pool, day, time)] = dir.id;
-  persist();
-  render();
-  toast(`${dir.name} 已排進星期${DAY[day]} ${hour}–${end}。`);
+  markDirty(`${dir.name} 已排進星期${DAY[day]} ${hour}–${end}`);
 }
 
 function relocateSlot(fromDay, fromTime, toDay, toHour) {
@@ -410,10 +443,8 @@ function relocateSlot(fromDay, fromTime, toDay, toHour) {
   const next = rangeToken(toHour, end);
   r.isoWeekdays[toDay] = [...(r.isoWeekdays[toDay] || []), next].sort();
   moveSlotMeta(slotKey(r.officeId, r.pool, fromDay, fromTime), slotKey(r.officeId, r.pool, toDay, next));
-  persist();
-  render();
   const dir = board.directors.find((d) => d.id === dirId);
-  toast(`${dir?.name || "此時段"} 已改到星期${DAY[toDay]} ${toHour}–${end}。`);
+  markDirty(`${dir?.name || "此時段"} 已改到星期${DAY[toDay]} ${toHour}–${end}`);
 }
 
 function resizeSlot(day, time) {
@@ -432,19 +463,32 @@ function resizeSlot(day, time) {
   const next = rangeToken(p.start, end);
   r.isoWeekdays[day] = (r.isoWeekdays[day] || []).map((t) => (t === time ? next : t)).sort();
   moveSlotMeta(slotKey(r.officeId, r.pool, day, time), slotKey(r.officeId, r.pool, day, next));
-  persist();
-  render();
+  markDirty(`已調整星期${DAY[day]} ${rangeLabel(next)}`);
+}
+
+function isDateClosed(ymd) {
+  return (board.closedDates || []).includes(String(ymd));
 }
 
 function renderSlotGrid(r) {
   const heads =
     `<div class="grid-corner"></div>` +
     [1, 2, 3, 4, 5, 6, 7]
-      .map((d) => `<div class="grid-head">星期${DAY[d]}<small>${dateForDay(weekOffset, d).slice(5)}</small></div>`)
+      .map((d) => {
+        const ymd = dateForDay(weekOffset, d);
+        const closed = isDateClosed(ymd);
+        return `<div class="grid-head${closed ? " is-closed" : ""}">星期${DAY[d]}<small>${ymd.slice(5)}</small>${
+          closed
+            ? `<button type="button" class="day-btn" data-act="open-day" data-id="${esc(ymd)}">恢復這天</button><span class="day-closed-tag">已停面</span>`
+            : `<button type="button" class="day-btn danger" data-act="close-day" data-id="${esc(ymd)}">取消這天</button>`
+        }</div>`;
+      })
       .join("");
   const body = HOURS.map((hour, i) => {
     const cells = [1, 2, 3, 4, 5, 6, 7]
       .map((day) => {
+        const ymd = dateForDay(weekOffset, day);
+        const closed = isDateClosed(ymd);
         const started = (r.isoWeekdays[day] || []).find((t) => parseRange(t).start === hour);
         if (started) {
           const span = slotSpan(started);
@@ -452,17 +496,17 @@ function renderSlotGrid(r) {
           const dir =
             board.directors.find((d) => d.id === board.assignments[slotKey(r.officeId, r.pool, day, started)]) ||
             group(r)[0];
-          const seated = slotBookings(dateForDay(weekOffset, day), start);
+          const seated = slotBookings(ymd, start);
           const names = seated.map((b) => candidates.find((c) => c.id === b.candidate_id)?.name || "面試者").join("、");
           const place = slotPlace(day, started);
-          return `<div class="grid-fill" data-drop-cell="${day}|${hour}" data-slot-time="${esc(started)}" data-act="open-slot" data-id="${day}|${esc(started)}" style="grid-column:${day + 1};grid-row:${i + 2} / span ${span};background:${color(dir?.id || "x")}"><button type="button" class="grid-x" data-act="remove-slot" data-id="${day}|${esc(started)}" aria-label="移除時段">×</button><b>${esc(dir?.name || "尚未指定")}</b><small>${esc([dir?.unit, rangeLabel(started), place?.label].filter(Boolean).join(" · "))}</small><span class="count">${seated.length}/${r.capacity}${names ? " · " + esc(names) : ""}</span><button type="button" class="grid-len" data-act="slot-len" data-id="${day}|${esc(started)}">${span <= 1 ? "改2小時" : "改1小時"}</button></div>`;
+          return `<div class="grid-fill${closed ? " is-closed" : ""}" data-drop-cell="${day}|${hour}" data-slot-time="${esc(started)}" data-act="open-slot" data-id="${day}|${esc(started)}" style="grid-column:${day + 1};grid-row:${i + 2} / span ${span};background:${color(dir?.id || "x")}"><button type="button" class="grid-x" data-act="remove-slot" data-id="${day}|${esc(started)}" aria-label="移除時段">×</button><b>${esc(dir?.name || "尚未指定")}</b><small>${esc([dir?.unit, rangeLabel(started), place?.label].filter(Boolean).join(" · "))}</small><span class="count">${seated.length}/${r.capacity}${names ? " · " + esc(names) : ""}${closed ? " · 停面" : ""}</span><button type="button" class="grid-edit" data-act="edit-slot" data-id="${day}|${esc(started)}">改時段</button><button type="button" class="grid-len" data-act="slot-len" data-id="${day}|${esc(started)}">${span <= 1 ? "改2小時" : "改1小時"}</button></div>`;
         }
         const covered = (r.isoWeekdays[day] || []).some((t) => {
           const p = parseRange(t);
           return p.start < hour && hour < p.end;
         });
         if (covered) return "";
-        return `<button type="button" class="grid-cell" data-act="place-slot" data-drop-cell="${day}|${hour}" data-id="${day}|${hour}" style="grid-column:${day + 1};grid-row:${i + 2}" aria-label="星期${DAY[day]} ${hour}"></button>`;
+        return `<button type="button" class="grid-cell${closed ? " is-closed" : ""}" data-act="place-slot" data-drop-cell="${day}|${hour}" data-id="${day}|${hour}" style="grid-column:${day + 1};grid-row:${i + 2}" aria-label="星期${DAY[day]} ${hour}"></button>`;
       })
       .join("");
     return `<div class="grid-hour" style="grid-column:1;grid-row:${i + 2}">${esc(hour)}</div>${cells}`;
@@ -476,7 +520,7 @@ function renderSlotGrid(r) {
         .join("")
     : `<p class="hint-card">${esc(OFFICES[r.officeId] || "")}還沒有處長姓名，請先在下面「新增處長或主管」。不要先填猜測的姓名。</p>`;
   const hours = board.slotHours === 1 ? 1 : 2;
-  return `<div class="director-tray"><div class="tray-row">${tray}</div><div class="len-switch"><span>拉進去的新時段</span><button type="button" data-act="slot-hours" data-id="1" class="${hours === 1 ? "active" : ""}">1小時</button><button type="button" data-act="slot-hours" data-id="2" class="${hours === 2 ? "active" : ""}">2小時</button></div><p>把處長拉進格子，或先點姓名再點格子。那個時段就由他面試。已排的格子可改 1／2 小時；沒在選處長時，點格子可排面試者。</p></div><div class="slot-grid-wrap"><div class="slot-grid">${heads}${body}</div></div>`;
+  return `<div class="director-tray"><div class="tray-row">${tray}</div><div class="len-switch"><span>拉進去的新時段</span><button type="button" data-act="slot-hours" data-id="1" class="${hours === 1 ? "active" : ""}">1小時</button><button type="button" data-act="slot-hours" data-id="2" class="${hours === 2 ? "active" : ""}">2小時</button></div><p>把處長拉進格子，或先點姓名再點格子。點「改時段」可手動改時間與面試處長。欄位上方「取消這天」可一次停掉當天（颱風假），並取消已約的人。</p></div><div class="slot-grid-wrap"><div class="slot-grid">${heads}${body}</div></div>`;
 }
 
 function directorForCityDayTime(officeId, day, start) {
@@ -695,8 +739,8 @@ function render() {
     : "";
   const humanDir = board.directors.find((d) => d.id === board.humanNotifyId);
   const humanBox = `<label>轉人工時通知誰<select id="human-notify"><option value="">不通知</option>${board.directors.map((d) => `<option value="${esc(d.id)}" ${d.id === board.humanNotifyId ? "selected" : ""}>${esc([d.unit, d.name].filter(Boolean).join(" "))}${d.notifyLine ? "" : "（尚未綁定 LINE）"}</option>`).join("")}</select></label>${humanDir && !humanDir.notifyLine ? `<p class="hint-card">${esc(humanDir.name)} 還沒綁定 LINE，綁定後才收得到轉人工通知。</p>` : ""}`;
-  const lineBox = `<div class="line-card"><h2>自動回 LINE 的訊息</h2>${humanBox}${baseLabel}<label>面試地點<input id="office-address" maxlength="80" value="${esc(office.address)}" placeholder="例如：台中市北屯區文心路四段698號6樓之1"></label><label>上樓說明<input id="office-arrival" maxlength="160" value="${esc(office.arrival)}"></label>${extraBox}<div class="line-actions"><button type="button" data-act="add-office">＋ 新增辦公室地址</button></div><p class="hint-card">有第二個面試地點時，按這裡新增地址，再到下面處長卡片按「改姓名／綁定LINE」設定他在哪個辦公室面試。求職者約到哪位處長的時段，就會收到那間辦公室的地址，並通知那位處長；LINE 約訪時段也會標出辦公室。</p><p>求職者回「預約面試」會先問縣市，再看到下面這段「${esc(OFFICES[currentOfficeId()] || "")}」的約訪文案。可以直接改文字；改完按「儲存約訪文案」。面試地點只在預約成功後才會寄出。</p><textarea id="line-offer" class="line-copy" maxlength="4900">${esc(offer)}</textarea><div class="line-actions"><button class="primary" data-act="save-offer">儲存約訪文案</button></div>${remindRows ? `<h3>明天要提醒</h3><pre class="line-copy">${esc(composeReminder(reminders[0].interview_date, reminders[0].start_time, applyOfficeDetails(officeForCity(reminders[0].apply_city || "台中"), board)))}</pre><ul class="remind-list">${remindRows}</ul>` : `<p class="hint-card">明天沒有已排定的面試，因此不會發提醒。</p>`}</div>`;
-  $("#app").innerHTML = `<div class="studio"><div class="studio-hero"><h1>面試者與面試時間</h1><p>先選縣市，再把處長拉進格子。約訪文案與面試地點可在下面改，存檔後 LINE 會用那一段。</p></div>${renderHumanQueue()}${renderStats()}<div class="week-toolbar"><div class="office-pills">${officePills}</div><div class="week-switch"><button data-act="week" data-id="${weekOffset - 1}">上一週</button><strong>${esc(weekLabel)}</strong><button data-act="week" data-id="${weekOffset + 1}">下一週</button></div><label>這個組每場最多幾人<input id="cap" type="number" min="1" max="99" value="${r.capacity}"></label></div>${renderSlotGrid(r)}${lineBox}<div class="candidate-panel"><div class="candidate-toolbar"><h2>面試者</h2><button class="primary" data-act="add-candidate">＋ 新增面試者</button><small>${esc(currentCity())} ${cityPeople.length} 人 · 已安排 ${cityPeople.filter((c) => activeBooking(c.id)).length} 場</small></div>${cityPeople.length ? `<table class="candidate-table"><thead><tr><th>姓名／LINE</th><th>職缺</th><th>面試時間</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : `<p>這個縣市還沒有面試者。求職者在 LINE 選「${esc(currentCity())}」後會出現在這裡，也可以按「新增面試者」手動填。</p>`}</div><div class="people-grid">${people}<button class="person-add" data-act="add-dir">＋ 新增處長或主管</button></div><div class="studio-foot"><button class="primary" data-act="save">儲存時間表</button><button data-act="reset">回復預設時段</button><small>時間表與面試者都在雲端，LINE 回覆會用這份時段。</small></div></div>`;
+  const lineBox = `<div class="line-card"><h2>自動回 LINE 的訊息</h2>${humanBox}${baseLabel}<label>面試地點<input id="office-address" maxlength="80" value="${esc(office.address)}" placeholder="例如：台中市北屯區文心路四段698號6樓之1"></label><label>上樓說明<input id="office-arrival" maxlength="160" value="${esc(office.arrival)}"></label>${extraBox}<div class="line-actions"><button type="button" data-act="add-office">＋ 新增辦公室地址</button></div><p class="hint-card">有第二個面試地點時，按這裡新增地址，再到下面處長卡片按「改姓名／綁定LINE」設定他在哪個辦公室面試。求職者約到哪位處長的時段，就會收到那間辦公室的地址，並通知那位處長；LINE 約訪時段也會標出辦公室。</p><p>上方時間表變動時，這段「${esc(OFFICES[currentOfficeId()] || "")}」約訪文案會自動跟著更新。也可手動改字；都要按最下方「儲存時間表」才會生效。面試地點只在預約成功後才會寄出。</p><textarea id="line-offer" class="line-copy" maxlength="4900">${esc(offer)}</textarea><div class="line-actions"><button type="button" data-act="sync-offer">依時間表重產文案</button></div>${remindRows ? `<h3>明天要提醒</h3><pre class="line-copy">${esc(composeReminder(reminders[0].interview_date, reminders[0].start_time, applyOfficeDetails(officeForCity(reminders[0].apply_city || "台中"), board)))}</pre><ul class="remind-list">${remindRows}</ul>` : `<p class="hint-card">明天沒有已排定的面試，因此不會發提醒。</p>`}</div>`;
+  $("#app").innerHTML = `<div class="studio"><div class="studio-hero"><h1>面試者與面試時間</h1><p>先選縣市，再把處長拉進格子。時間變動後請按最下方儲存，LINE 才會用新時段。</p></div>${renderHumanQueue()}${renderStats()}<div class="week-toolbar"><div class="office-pills">${officePills}</div><div class="week-switch"><button data-act="week" data-id="${weekOffset - 1}">上一週</button><strong>${esc(weekLabel)}</strong><button data-act="week" data-id="${weekOffset + 1}">下一週</button></div><label>這個組每場最多幾人<input id="cap" type="number" min="1" max="99" value="${r.capacity}"></label></div>${renderSlotGrid(r)}${lineBox}<div class="candidate-panel"><div class="candidate-toolbar"><h2>面試者</h2><button class="primary" data-act="add-candidate">＋ 新增面試者</button><small>${esc(currentCity())} ${cityPeople.length} 人 · 已安排 ${cityPeople.filter((c) => activeBooking(c.id)).length} 場</small></div>${cityPeople.length ? `<table class="candidate-table"><thead><tr><th>姓名／LINE</th><th>職缺</th><th>面試時間</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : `<p>這個縣市還沒有面試者。求職者在 LINE 選「${esc(currentCity())}」後會出現在這裡，也可以按「新增面試者」手動填。</p>`}</div><div class="people-grid">${people}<button class="person-add" data-act="add-dir">＋ 新增處長或主管</button></div><div class="studio-foot"><button class="primary" data-act="save">${dirty ? "儲存時間表（有未存變更）" : "儲存時間表"}</button><button data-act="reset">回復預設時段</button><small>${dirty ? "有未儲存的時間變動。" : ""}時間變動都要按「儲存時間表」才會生效。回復預設會回到目前台中標準排班（文心路／台中路 × 處長）。</small></div></div>`;
 }
 
 function modal(html) {
@@ -881,14 +925,48 @@ document.addEventListener("click", (e) => {
     render();
     return;
   }
-  if (a === "save-offer") {
-    const typed = ($("#line-offer")?.value || "").trim();
-    const id = currentOfficeId();
-    board.lineOffers = board.lineOffers || {};
-    board.lineOffers[id] = typed;
-    if (id === "taichung") board.lineOffer = typed;
-    persist(true);
-    toast("約訪文案已存到雲端。求職者選這個縣市後會看到這段。");
+  if (a === "sync-offer") {
+    syncOfferFromSchedule();
+    dirty = true;
+    localStorage.setItem(KEY, JSON.stringify(board));
+    toast("已依時間表重產約訪文案（尚未儲存）");
+    render();
+    return;
+  }
+  if (a === "close-day") {
+    const ymd = String(v || "");
+    if (!ymd) return;
+    const dayBookings = bookings.filter((b) => {
+      if (b.interview_date !== ymd) return false;
+      const c = candidates.find((x) => x.id === b.candidate_id);
+      return (c?.interview_city || c?.apply_city || "") === currentCity();
+    });
+    if (
+      !confirm(
+        dayBookings.length
+          ? `${ymd} 有 ${dayBookings.length} 場已預約，確定取消當天全部面試並標成停面（颱風假）？`
+          : `確定把 ${ymd} 標成停面（颱風假）？求職者將無法約這天。`,
+      )
+    )
+      return;
+    guarded(async () => {
+      for (const b of dayBookings) {
+        await rpc("xinghong_cancel", { p_booking_id: b.id });
+      }
+      board.closedDates = [...new Set([...(board.closedDates || []).map(String), ymd])];
+      await rpc("xinghong_save_schedule", { p_value: board });
+      dirty = false;
+      localStorage.setItem(KEY, JSON.stringify(board));
+      await loadCloud();
+      toast(`${ymd} 已停面${dayBookings.length ? `，並取消 ${dayBookings.length} 場預約` : ""}。`);
+      render();
+    });
+    return;
+  }
+  if (a === "open-day") {
+    const ymd = String(v || "");
+    board.closedDates = (board.closedDates || []).filter((d) => d !== ymd);
+    markDirty(`已恢復 ${ymd} 可預約`);
     return;
   }
   if (a === "resolve-human") {
@@ -916,20 +994,44 @@ document.addEventListener("click", (e) => {
     r.isoWeekdays[day] = (r.isoWeekdays[day] || []).filter((t) => t !== time);
     moveSlotMeta(slotKey(r.officeId, r.pool, day, time), "");
     if ($("#dialog").open) $("#dialog").close();
-    persist();
-    render();
+    markDirty(`已移除星期${DAY[day]} ${rangeLabel(time)}`);
     return;
   }
-  if (a === "save") persist();
-  if (a === "reset") {
-    const details = board.officeDetails;
-    const offers = board.lineOffers;
-    board = defaults();
-    board.officeDetails = details || {};
-    board.lineOffers = offers || {};
+  if (a === "save") {
+    const typed = ($("#line-offer")?.value || "").trim();
+    if (typed) {
+      const id = currentOfficeId();
+      board.lineOffers = board.lineOffers || {};
+      board.lineOffers[id] = typed;
+      if (id === "taichung") board.lineOffer = typed;
+    }
     persist();
-    toast("已回復預設時間表。");
-    render();
+    return;
+  }
+  if (a === "reset") {
+    if (!confirm("確定回復台中標準預設時段？其他縣市與處長 LINE 綁定會保留。")) return;
+    const keepDirs = board.directors;
+    const details = board.officeDetails;
+    const human = board.humanNotifyId;
+    const closed = board.closedDates || [];
+    const otherOffers = { ...(board.lineOffers || {}) };
+    const idx = board.officeIndex;
+    board = defaults();
+    board.directors = keepDirs;
+    board.officeDetails = details || {};
+    board.humanNotifyId = human;
+    board.closedDates = closed;
+    board.officeIndex = idx;
+    const taichung = board.rules.find((x) => x.officeId === "taichung" && x.pool === "general");
+    if (taichung) taichung.isoWeekdays = structuredClone(DEFAULT_TAICHUNG_WEEK);
+    board.assignments = {
+      ...Object.fromEntries(Object.entries(board.assignments || {}).filter(([k]) => !k.startsWith("taichung|general|"))),
+      ...DEFAULT_TAICHUNG_ASSIGNMENTS,
+    };
+    board.lineOffers = otherOffers;
+    syncOfferFromSchedule();
+    markDirty("已回復預設時段");
+    return;
   }
   if (a === "cancel-booking") {
     guarded(async () => {
@@ -966,7 +1068,8 @@ function syncExtraField(el) {
 document.addEventListener("change", (e) => {
   if (e.target.id === "cap") {
     board.rules[board.officeIndex].capacity = Number(e.target.value);
-    persist(true);
+    markDirty("已調整每場人數上限");
+    return;
   }
   if (e.target.id === "stat-from" || e.target.id === "stat-to") {
     statsFrom = $("#stat-from")?.value || statsFrom;
@@ -1089,8 +1192,7 @@ document.addEventListener("submit", (e) => {
     if (!r.isoWeekdays[day].includes(time)) r.isoWeekdays[day] = [...r.isoWeekdays[day], time].sort();
     board.assignments[slotKey(r.officeId, r.pool, day, time)] = data.directorId;
     $("#dialog").close();
-    persist();
-    render();
+    markDirty(oldTime ? `已更新星期${DAY[day]} ${rangeLabel(time)}` : `已加入星期${DAY[day]} ${rangeLabel(time)}`);
   }
   if (f.id === "candidate-form") {
     guarded(async () => {

@@ -331,10 +331,18 @@ export function addMinutes(hhmm, minutes) {
   );
 }
 
-export function isBookable(date, start, today, nowHm) {
+export function isClosedDate(scheduleOrDates, date) {
+  const list = Array.isArray(scheduleOrDates)
+    ? scheduleOrDates
+    : scheduleOrDates?.closedDates || [];
+  return Boolean(date) && list.map(String).includes(String(date));
+}
+
+export function isBookable(date, start, today, nowHm, closedDates) {
   if (!date || !start || !today) return false;
   if (date < today) return false;
   if (date > addDays(today, 13)) return false;
+  if (isClosedDate(closedDates, date)) return false;
   if (date === today && nowHm && nowHm >= addMinutes(start, -60)) return false;
   return true;
 }
@@ -449,11 +457,14 @@ function hourToStart(hour, period) {
   return String(hour).padStart(2, "0") + ":00";
 }
 
-function upcomingDate(isoDay, today, start, nowHm) {
+function upcomingDate(isoDay, today, start, nowHm, closedDates) {
   let delta = isoDay - weekday(today);
   if (delta < 0) delta += 7;
   let date = addDays(today, delta);
-  if (delta === 0 && !isBookable(date, start, today, nowHm)) date = addDays(today, 7);
+  for (let i = 0; i < 3; i++) {
+    if (isBookable(date, start, today, nowHm, closedDates)) return date;
+    date = addDays(date, 7);
+  }
   return date;
 }
 
@@ -464,7 +475,7 @@ function nextWeekDate(isoDay, today) {
 const YES_REPLY = /^(可以|可|好|好的|好喔|好唷|ok|okay|沒問題|行|可以的|可以喔|可以唷|可以呀|可以啊|確定)$/i;
 const NEXT_WEEK_REPLY = /^(預約)?下個?(周|週|禮拜|星期)(的)?(可以|好)?$/;
 
-export function parseQuickReply(text, { today, nowHm = "00:00", isoWeekdays = {} } = {}) {
+export function parseQuickReply(text, { today, nowHm = "00:00", isoWeekdays = {}, closedDates } = {}) {
   if (!today) return null;
   const slots = [];
   for (let day = 1; day <= 7; day++) {
@@ -474,9 +485,10 @@ export function parseQuickReply(text, { today, nowHm = "00:00", isoWeekdays = {}
   const [slot] = slots;
   const t = cleanLineText(text).replace(/[!！。.～~]+$/, "");
   let date = null;
-  if (YES_REPLY.test(t)) date = upcomingDate(slot.day, today, slot.start, nowHm);
+  if (YES_REPLY.test(t)) date = upcomingDate(slot.day, today, slot.start, nowHm, closedDates);
   else if (NEXT_WEEK_REPLY.test(t)) date = nextWeekDate(slot.day, today);
-  if (!date) return null;
+  if (!date || (YES_REPLY.test(t) && !isBookable(date, slot.start, today, nowHm, closedDates))) return null;
+  if (NEXT_WEEK_REPLY.test(t) && isClosedDate(closedDates, date)) return null;
   return {
     ok: true,
     isoDay: slot.day,
@@ -503,6 +515,7 @@ export function parseTimeReply(
     today,
     nowHm = "00:00",
     isoWeekdays = DEFAULT_TAICHUNG_WEEK,
+    closedDates,
   } = {},
 ) {
   const raw = String(text || "")
@@ -559,7 +572,22 @@ export function parseTimeReply(
 
   const date = /下個?(?:禮拜|星期|週|周)/.test(raw)
     ? nextWeekDate(isoDay, today)
-    : upcomingDate(isoDay, today, slot.start, nowHm);
+    : upcomingDate(isoDay, today, slot.start, nowHm, closedDates);
+  if (!isBookable(date, slot.start, today, nowHm, closedDates) && /下個?(?:禮拜|星期|週|周)/.test(raw)) {
+    return { ok: false, reason: "CLOSED" };
+  }
+  if (!isBookable(date, slot.start, today, nowHm, closedDates)) {
+    const next = upcomingDate(isoDay, today, slot.start, nowHm, closedDates);
+    if (!isBookable(next, slot.start, today, nowHm, closedDates)) return { ok: false, reason: "CLOSED" };
+    return {
+      ok: true,
+      isoDay,
+      date: next,
+      start: slot.start,
+      end: slot.end,
+      label: `禮拜${DAY_ZH[isoDay]} ${zhClock(slot.start)}`,
+    };
+  }
   return {
     ok: true,
     isoDay,
@@ -851,13 +879,21 @@ function replyFor({
   if (gap === "job" && intent.kind === "chat") {
     return askGap("job", "請從下列選一個職位。\n\n");
   }
+  const closedDates = schedule?.closedDates || [];
   const picked =
-    (knownCity && parseQuickReply(text, { today, nowHm, isoWeekdays: ctx.isoWeekdays })) ||
-    parseTimeReply(text, { today, nowHm, isoWeekdays: ctx.isoWeekdays });
+    (knownCity && parseQuickReply(text, { today, nowHm, isoWeekdays: ctx.isoWeekdays, closedDates })) ||
+    parseTimeReply(text, { today, nowHm, isoWeekdays: ctx.isoWeekdays, closedDates });
   if (picked.ok) {
     if (waitingNantou || !knownCity) return waitingNantou ? { text: composeAskNantouInterview(), actions: [] } : askCity();
-    if (!isBookable(picked.date, picked.start, today, nowHm)) {
-      return { text: "目前只開放含今天共14天、且開場前1小時可預約。請改選其他時段。\n\n" + (gap ? composeAskProfile(gap) : offerForContext(ctx)), actions: [] };
+    if (!isBookable(picked.date, picked.start, today, nowHm, closedDates)) {
+      return {
+        text:
+          (isClosedDate(closedDates, picked.date)
+            ? "這天因故暫停面試，請改選其他日期。\n\n"
+            : "目前只開放含今天共14天、且開場前1小時可預約。請改選其他時段。\n\n") +
+          (gap ? composeAskProfile(gap) : offerForContext(ctx)),
+        actions: [],
+      };
     }
     const branch = officeForSlot(knownCity, schedule, picked.date, picked.start);
     const slot = { ...picked, officeId: ctx.office.id, city: ctx.office.city, branchId: branch.id };

@@ -410,6 +410,18 @@ test("expired bookings do not block a new 預約面試", () => {
   assert.match(stillOn.text, /您目前已預約/);
 });
 
+test("closedDates skip typhoon days when booking a weekday", () => {
+  const closed = ["2026-09-15"]; // Tuesday
+  const picked = parseTimeReply("禮拜二下午2點", {
+    today: "2026-09-14",
+    nowHm: "10:00",
+    isoWeekdays: DEFAULT_TAICHUNG_WEEK,
+    closedDates: closed,
+  });
+  assert.equal(picked.ok, true);
+  assert.equal(picked.date, "2026-09-22");
+});
+
 test("the slot's director decides which Taichung office the applicant goes to", () => {
   const schedule = {
     rules: [
