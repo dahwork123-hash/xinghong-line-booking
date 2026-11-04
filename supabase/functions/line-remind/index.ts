@@ -3,6 +3,7 @@ import {
   composeReminder,
   composeDirectorNotice,
   officeForSlot,
+  reminderTemplateFor,
 } from "./chat-offer.js";
 
 function timingEqual(a, b) {
@@ -66,7 +67,12 @@ Deno.serve(async (req) => {
       row.start_time,
       booked?.director_id,
     );
-    const text = composeReminder(row.interview_date, row.start_time, office);
+    const text = composeReminder(
+      row.interview_date,
+      row.start_time,
+      office,
+      reminderTemplateFor(schedule, office?.id || office?.parentId || "taichung"),
+    );
     const ok = await push(token, row.line_user_id, text);
     if (ok) {
       await sb.rpc("xinghong_mark_reminded", { p_booking_id: row.id });

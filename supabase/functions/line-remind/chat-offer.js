@@ -412,14 +412,30 @@ export function composeConfirm(office = TAICHUNG_OFFICE, slot = null) {
   return [when, office.address, "", office.arrival, office.weather].join("\n");
 }
 
-export function composeReminder(date, start, office = TAICHUNG_OFFICE) {
-  return [
-    `您好，提醒您明天（${shortDate(date)}）${zhClock(start)}面試。`,
-    `地點：${office.address}`,
-    "",
-    office.arrival,
-    office.weather,
-  ].join("\n");
+export const DEFAULT_REMINDER_TEMPLATE = [
+  "您好，提醒您明天（{{date}}）{{time}}面試。",
+  "地點：{{address}}",
+  "",
+  "{{arrival}}",
+  "{{weather}}",
+].join("\n");
+
+export function reminderTemplateFor(schedule, officeId) {
+  const id = String(officeId || "taichung").replace(/-extra-.*$/, "") || "taichung";
+  const custom = schedule?.lineReminders?.[id] || schedule?.lineReminders?.[officeId] || "";
+  return String(custom || "").trim() || DEFAULT_REMINDER_TEMPLATE;
+}
+
+export function composeReminder(date, start, office = TAICHUNG_OFFICE, template = "") {
+  const vars = {
+    date: shortDate(date),
+    time: zhClock(start),
+    address: office?.address || "",
+    arrival: office?.arrival || "",
+    weather: office?.weather || WEATHER,
+  };
+  const raw = String(template || "").trim() || DEFAULT_REMINDER_TEMPLATE;
+  return raw.replace(/\{\{(date|time|address|arrival|weather)\}\}/g, (_, key) => vars[key] ?? "");
 }
 
 export function looksLikeOfferRequest(text) {

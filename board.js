@@ -7,10 +7,12 @@ import {
   officesForCity,
   officeForSlot,
   slotPlaceLabeler,
+  reminderTemplateFor,
+  DEFAULT_REMINDER_TEMPLATE,
   OFFICES as INTERVIEW_OFFICES,
   DEFAULT_CITY_RULES,
   DEFAULT_TAICHUNG_WEEK,
-} from "./source/src/chat-offer.js?v=sched2";
+} from "./source/src/chat-offer.js?v=sched3";
 
 const DAY = ["", "一", "二", "三", "四", "五", "六", "日"];
 const OFFICES = { taichung: "台中", hsinchu: "新竹", taoyuan: "桃園", changhua: "彰化", chiayi: "嘉義", nantou: "南投" };
@@ -166,6 +168,7 @@ function ensureCities(next) {
   next.rules.sort((a, b) => order.indexOf(a.officeId) - order.indexOf(b.officeId));
   if (next.officeIndex >= next.rules.length) next.officeIndex = 0;
   next.lineOffers = next.lineOffers || {};
+  next.lineReminders = next.lineReminders || {};
   next.officeDetails = next.officeDetails || {};
   next.closedDates = Array.isArray(next.closedDates) ? next.closedDates.map(String) : [];
   return added;
@@ -716,11 +719,23 @@ function render() {
   const weekLabel = dateForDay(weekOffset, 1) + " ～ " + dateForDay(weekOffset, 7);
   const offer = offerText();
   const remindRows = (reminders || [])
-    .map(
-      (item) =>
-        `<li><strong>${esc(item.line_name || item.name)}</strong> ${esc(item.start_time)}–${esc(item.end_time)}<small>LINE名稱 ${esc(item.line_name || "未填")} · User ID ${esc(item.line_user_id || "尚無")}${item.reminder_sent_at ? " · 已提醒" : ""}</small></li>`,
-    )
+    .map((item) => {
+      const person = candidates.find((c) => c.id === item.candidate_id || c.line_user_id === item.line_user_id);
+      const city = person?.interview_city || item.apply_city || person?.apply_city || "台中";
+      return `<li><strong>${esc(item.line_name || item.name)}</strong> ${esc(item.start_time)}–${esc(item.end_time)}<small>${esc(city)} · LINE名稱 ${esc(item.line_name || "未填")} · User ID ${esc(item.line_user_id || "尚無")}${item.reminder_sent_at ? " · 已提醒" : ""}</small></li>`;
+    })
     .join("");
+  const sampleDate = reminders[0]?.interview_date || addDays(taipeiToday(), 1);
+  const sampleStart = reminders[0]?.start_time || "11:00";
+  const remindEditors = Object.entries(OFFICES)
+    .map(([id, cityName]) => {
+      const office = applyOfficeDetails(officeForCity(cityName), board);
+      const tpl = reminderTemplateFor(board, id);
+      const preview = composeReminder(sampleDate, sampleStart, office, tpl);
+      return `<div class="remind-city-card"><div class="remind-city-head"><strong>${esc(cityName)}</strong><button type="button" data-act="reset-remind" data-id="${esc(id)}">回復預設</button></div><label>罐頭訊息（可用 {{date}} {{time}} {{address}} {{arrival}} {{weather}}）<textarea data-remind-office="${esc(id)}" class="line-copy" maxlength="4900" rows="7">${esc(tpl)}</textarea></label><details><summary>預覽（用明天範例時間）</summary><pre class="line-copy remind-preview">${esc(preview)}</pre></details></div>`;
+    })
+    .join("");
+  const remindBox = `<div class="remind-panel"><h3>各縣市提醒罐頭訊息</h3><p class="hint-card">每位求職者面試前一天會依其面試縣市／辦公室套用對應罐頭。改完請按最下方「儲存時間表」。</p><div class="remind-city-grid">${remindEditors}</div>${remindRows ? `<h3>明天要提醒的人</h3><ul class="remind-list">${remindRows}</ul>` : `<p class="hint-card">明天沒有已排定的面試，因此不會發提醒。</p>`}</div>`;
   const officePills = board.rules
     .map(
       (rule, i) =>
@@ -739,7 +754,7 @@ function render() {
     : "";
   const humanDir = board.directors.find((d) => d.id === board.humanNotifyId);
   const humanBox = `<label>轉人工時通知誰<select id="human-notify"><option value="">不通知</option>${board.directors.map((d) => `<option value="${esc(d.id)}" ${d.id === board.humanNotifyId ? "selected" : ""}>${esc([d.unit, d.name].filter(Boolean).join(" "))}${d.notifyLine ? "" : "（尚未綁定 LINE）"}</option>`).join("")}</select></label>${humanDir && !humanDir.notifyLine ? `<p class="hint-card">${esc(humanDir.name)} 還沒綁定 LINE，綁定後才收得到轉人工通知。</p>` : ""}`;
-  const lineBox = `<div class="line-card"><h2>自動回 LINE 的訊息</h2>${humanBox}${baseLabel}<label>面試地點<input id="office-address" maxlength="80" value="${esc(office.address)}" placeholder="例如：台中市北屯區文心路四段698號6樓之1"></label><label>上樓說明<input id="office-arrival" maxlength="160" value="${esc(office.arrival)}"></label>${extraBox}<div class="line-actions"><button type="button" data-act="add-office">＋ 新增辦公室地址</button></div><p class="hint-card">有第二個面試地點時，按這裡新增地址，再到下面處長卡片按「改姓名／綁定LINE」設定他在哪個辦公室面試。求職者約到哪位處長的時段，就會收到那間辦公室的地址，並通知那位處長；LINE 約訪時段也會標出辦公室。</p><p>上方時間表變動時，這段「${esc(OFFICES[currentOfficeId()] || "")}」約訪文案會自動跟著更新。也可手動改字；都要按最下方「儲存時間表」才會生效。面試地點只在預約成功後才會寄出。</p><textarea id="line-offer" class="line-copy" maxlength="4900">${esc(offer)}</textarea><div class="line-actions"><button type="button" data-act="sync-offer">依時間表重產文案</button></div>${remindRows ? `<h3>明天要提醒</h3><pre class="line-copy">${esc(composeReminder(reminders[0].interview_date, reminders[0].start_time, applyOfficeDetails(officeForCity(reminders[0].apply_city || "台中"), board)))}</pre><ul class="remind-list">${remindRows}</ul>` : `<p class="hint-card">明天沒有已排定的面試，因此不會發提醒。</p>`}</div>`;
+  const lineBox = `<div class="line-card"><h2>自動回 LINE 的訊息</h2>${humanBox}${baseLabel}<label>面試地點<input id="office-address" maxlength="80" value="${esc(office.address)}" placeholder="例如：台中市北屯區文心路四段698號6樓之1"></label><label>上樓說明<input id="office-arrival" maxlength="160" value="${esc(office.arrival)}"></label>${extraBox}<div class="line-actions"><button type="button" data-act="add-office">＋ 新增辦公室地址</button></div><p class="hint-card">有第二個面試地點時，按這裡新增地址，再到下面處長卡片按「改姓名／綁定LINE」設定他在哪個辦公室面試。求職者約到哪位處長的時段，就會收到那間辦公室的地址，並通知那位處長；LINE 約訪時段也會標出辦公室。</p><p>上方時間表變動時，這段「${esc(OFFICES[currentOfficeId()] || "")}」約訪文案會自動跟著更新。也可手動改字；都要按最下方「儲存時間表」才會生效。面試地點只在預約成功後才會寄出。</p><textarea id="line-offer" class="line-copy" maxlength="4900">${esc(offer)}</textarea><div class="line-actions"><button type="button" data-act="sync-offer">依時間表重產文案</button></div>${remindBox}</div>`;
   $("#app").innerHTML = `<div class="studio"><div class="studio-hero"><h1>面試者與面試時間</h1><p>先選縣市，再把處長拉進格子。時間變動後請按最下方儲存，LINE 才會用新時段。</p></div>${renderHumanQueue()}${renderStats()}<div class="week-toolbar"><div class="office-pills">${officePills}</div><div class="week-switch"><button data-act="week" data-id="${weekOffset - 1}">上一週</button><strong>${esc(weekLabel)}</strong><button data-act="week" data-id="${weekOffset + 1}">下一週</button></div><label>這個組每場最多幾人<input id="cap" type="number" min="1" max="99" value="${r.capacity}"></label></div>${renderSlotGrid(r)}${lineBox}<div class="candidate-panel"><div class="candidate-toolbar"><h2>面試者</h2><button class="primary" data-act="add-candidate">＋ 新增面試者</button><small>${esc(currentCity())} ${cityPeople.length} 人 · 已安排 ${cityPeople.filter((c) => activeBooking(c.id)).length} 場</small></div>${cityPeople.length ? `<table class="candidate-table"><thead><tr><th>姓名／LINE</th><th>職缺</th><th>面試時間</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : `<p>這個縣市還沒有面試者。求職者在 LINE 選「${esc(currentCity())}」後會出現在這裡，也可以按「新增面試者」手動填。</p>`}</div><div class="people-grid">${people}<button class="person-add" data-act="add-dir">＋ 新增處長或主管</button></div><div class="studio-foot"><button class="primary" data-act="save">${dirty ? "儲存時間表（有未存變更）" : "儲存時間表"}</button><button data-act="reset">回復預設時段</button><small>${dirty ? "有未儲存的時間變動。" : ""}時間變動都要按「儲存時間表」才會生效。回復預設會回到目前台中標準排班（文心路／台中路 × 處長）。</small></div></div>`;
 }
 
@@ -997,6 +1012,15 @@ document.addEventListener("click", (e) => {
     markDirty(`已移除星期${DAY[day]} ${rangeLabel(time)}`);
     return;
   }
+  if (a === "reset-remind") {
+    board.lineReminders = board.lineReminders || {};
+    board.lineReminders[v] = DEFAULT_REMINDER_TEMPLATE;
+    dirty = true;
+    localStorage.setItem(KEY, JSON.stringify(board));
+    toast(`${OFFICES[v] || v} 提醒罐頭已回復預設（尚未儲存）`);
+    render();
+    return;
+  }
   if (a === "save") {
     const typed = ($("#line-offer")?.value || "").trim();
     if (typed) {
@@ -1005,6 +1029,10 @@ document.addEventListener("click", (e) => {
       board.lineOffers[id] = typed;
       if (id === "taichung") board.lineOffer = typed;
     }
+    board.lineReminders = board.lineReminders || {};
+    document.querySelectorAll("[data-remind-office]").forEach((el) => {
+      board.lineReminders[el.dataset.remindOffice] = el.value;
+    });
     persist();
     return;
   }
@@ -1015,6 +1043,7 @@ document.addEventListener("click", (e) => {
     const human = board.humanNotifyId;
     const closed = board.closedDates || [];
     const otherOffers = { ...(board.lineOffers || {}) };
+    const reminds = { ...(board.lineReminders || {}) };
     const idx = board.officeIndex;
     board = defaults();
     board.directors = keepDirs;
@@ -1029,6 +1058,7 @@ document.addEventListener("click", (e) => {
       ...DEFAULT_TAICHUNG_ASSIGNMENTS,
     };
     board.lineOffers = otherOffers;
+    board.lineReminders = reminds;
     syncOfferFromSchedule();
     markDirty("已回復預設時段");
     return;
@@ -1124,6 +1154,12 @@ document.addEventListener("input", (e) => {
     board.lineOffers = board.lineOffers || {};
     board.lineOffers[id] = e.target.value;
     if (id === "taichung") board.lineOffer = e.target.value;
+    dirty = true;
+  }
+  if (e.target.dataset.remindOffice) {
+    board.lineReminders = board.lineReminders || {};
+    board.lineReminders[e.target.dataset.remindOffice] = e.target.value;
+    dirty = true;
   }
   if (e.target.id === "office-address" || e.target.id === "office-arrival") {
     const id = currentOfficeId();

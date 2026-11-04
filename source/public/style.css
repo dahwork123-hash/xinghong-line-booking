@@ -711,6 +711,44 @@ body.is-dragging * {
   color: #3f7a5e;
   background: #f6fbf7;
 }
+.remind-panel {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid #d7e5dc;
+}
+.remind-city-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+  margin: 12px 0 16px;
+}
+.remind-city-card {
+  background: #f7fbf8;
+  border: 1px solid #d7e5dc;
+  border-radius: 14px;
+  padding: 12px;
+}
+.remind-city-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.remind-city-head button {
+  border: 1px solid #c9d8ce;
+  background: #fff;
+  border-radius: 999px;
+  font-size: 12px;
+  padding: 3px 10px;
+  cursor: pointer;
+}
+.remind-preview {
+  margin-top: 8px;
+  max-height: 180px;
+  overflow: auto;
+  font-size: 12px;
+}
 .studio-foot {
   background: #f5f8f6;
   border-top: 1px solid #d5e2d9;

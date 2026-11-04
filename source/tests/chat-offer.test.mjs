@@ -144,6 +144,11 @@ test("reminder uses tomorrow's short date and start time", () => {
   assert.match(text, /文心路四段698號6樓之1/);
 });
 
+test("reminder template placeholders are filled per city copy", () => {
+  const text = composeReminder("2026-09-12", "11:00", TAICHUNG_OFFICE, "提醒：{{date}} {{time}}\n{{address}}");
+  assert.equal(text, "提醒：9/12 上午11點\n台中市北屯區文心路四段698號6樓之1");
+});
+
 test("skips today's slot after the one-hour cutoff", () => {
   const picked = parseTimeReply("禮拜一下午2點", {
     today: "2026-09-14",
