@@ -19,11 +19,12 @@ test("offer text matches the current staff weekly times", () => {
   const text = composeOffer(DEFAULT_TAICHUNG_WEEK, TAICHUNG_OFFICE);
   assert.match(text, /禮拜一，上午11點、下午2點/);
   assert.match(text, /禮拜二，上午11點、下午2點或4點/);
-  assert.match(text, /禮拜三，上午10點、下午2點或4點/);
+  assert.match(text, /禮拜三，下午2點或4點/);
   assert.match(text, /禮拜四，上午11點、下午2點或4點/);
   assert.match(text, /禮拜五，下午2點或4點/);
   assert.match(text, /請問您哪個時段可以來面試呢\?/);
   assert.doesNotMatch(text, /文心路/);
+  assert.doesNotMatch(text, /上午10點/);
 });
 
 test("confirm reply includes address and arrival notes", () => {
@@ -127,14 +128,14 @@ test("彰化 single slot: 可以 books the coming one, 預約下周 books next w
 });
 
 test("uses this week's weekday when that slot is still upcoming", () => {
-  const picked = parseTimeReply("禮拜三上午10點", {
+  const picked = parseTimeReply("禮拜三下午2點", {
     today: "2026-09-07",
     nowHm: "09:00",
     isoWeekdays: DEFAULT_TAICHUNG_WEEK,
   });
   assert.equal(picked.ok, true);
   assert.equal(picked.date, "2026-09-09");
-  assert.equal(picked.start, "10:00");
+  assert.equal(picked.start, "14:00");
 });
 
 test("reminder uses tomorrow's short date and start time", () => {
@@ -438,7 +439,7 @@ test("the slot's director decides which Taichung office the applicant goes to", 
   };
   const offer = buildLineReply({ text: "台中", today: "2026-09-14", schedule, profile: { profileOk: true } });
   assert.doesNotMatch(offer.text, /哪一間|請回：1/);
-  assert.match(offer.text, /禮拜二，上午11點\(文心路\)、下午2點\(台中路\)或4點\(文心路\)/);
+  assert.match(offer.text, /禮拜二，上午11點\(文心路-童翊桓\)、下午2點\(台中路-蘇睿雅\)或4點\(文心路-吳震\)/);
 
   const book = buildLineReply({
     text: "禮拜二下午2點",

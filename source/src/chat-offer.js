@@ -80,7 +80,7 @@ export const CITY_TO_OFFICE = {
 export const DEFAULT_TAICHUNG_WEEK = {
   1: ["11:00-13:00", "14:00-16:00"],
   2: ["11:00-13:00", "14:00-16:00", "16:00-18:00"],
-  3: ["10:00-12:00", "14:00-16:00", "16:00-18:00"],
+  3: ["14:00-16:00", "16:00-18:00"],
   4: ["11:00-13:00", "14:00-16:00", "16:00-18:00"],
   5: ["14:00-16:00", "16:00-18:00"],
 };
@@ -166,7 +166,12 @@ export function officeForSlot(city, schedule, date, start, directorId = "") {
 export function slotPlaceLabeler(city, schedule) {
   if (officesForCity(city, schedule).length < 2) return null;
   const base = officeForCity(city);
-  return (day, start) => officeOfDirector(city, schedule, slotDirectorId(schedule, base.id, day, start)).label;
+  return (day, start) => {
+    const directorId = slotDirectorId(schedule, base.id, day, start);
+    const place = officeOfDirector(city, schedule, directorId).label;
+    const name = String(directorById(schedule, directorId)?.name || "").trim();
+    return name ? `${place}-${name}` : place;
+  };
 }
 
 export function composeAskNantouInterview() {
