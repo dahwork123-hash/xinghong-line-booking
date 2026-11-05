@@ -749,6 +749,33 @@ body.is-dragging * {
   overflow: auto;
   font-size: 12px;
 }
+.day-dir {
+  margin: 0 0 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e4eee8;
+}
+.day-dir h3 {
+  margin: 0 0 6px;
+  font-size: 16px;
+}
+.day-dir h3 small {
+  display: block;
+  margin-top: 2px;
+  color: #5d7568;
+  font-size: 12px;
+  font-weight: 600;
+}
+.day-people {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+.day-people li {
+  margin: 6px 0;
+}
+.day-people small {
+  display: block;
+  color: #5d7568;
+}
 .studio-foot {
   background: #f5f8f6;
   border-top: 1px solid #d5e2d9;

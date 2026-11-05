@@ -523,7 +523,7 @@ function renderSlotGrid(r) {
         .join("")
     : `<p class="hint-card">${esc(OFFICES[r.officeId] || "")}還沒有處長姓名，請先在下面「新增處長或主管」。不要先填猜測的姓名。</p>`;
   const hours = board.slotHours === 1 ? 1 : 2;
-  return `<div class="director-tray"><div class="tray-row">${tray}</div><div class="len-switch"><span>拉進去的新時段</span><button type="button" data-act="slot-hours" data-id="1" class="${hours === 1 ? "active" : ""}">1小時</button><button type="button" data-act="slot-hours" data-id="2" class="${hours === 2 ? "active" : ""}">2小時</button></div><p>把處長拉進格子，或先點姓名再點格子。點「改時段」可手動改時間與面試處長。欄位上方「取消這天」可一次停掉當天（颱風假），並取消已約的人。</p></div><div class="slot-grid-wrap"><div class="slot-grid">${heads}${body}</div></div>`;
+  return `<div class="director-tray"><div class="tray-row">${tray}</div><div class="len-switch"><span>拉進去的新時段</span><button type="button" data-act="slot-hours" data-id="1" class="${hours === 1 ? "active" : ""}">1小時</button><button type="button" data-act="slot-hours" data-id="2" class="${hours === 2 ? "active" : ""}">2小時</button></div><p>點卡片可看當天各處長的預約明細。把處長拉進格子可改排；「改時段」可改時間與面試處長。欄位上方「取消這天」可一次停掉當天（颱風假）。</p></div><div class="slot-grid-wrap"><div class="slot-grid">${heads}${body}</div></div>`;
 }
 
 function directorForCityDayTime(officeId, day, start) {
@@ -794,6 +794,32 @@ function candidateForm(c) {
   );
 }
 
+function openDayDetail(day) {
+  const r = board.rules[board.officeIndex];
+  const date = dateForDay(weekOffset, day);
+  const times = [...(r.isoWeekdays[day] || r.isoWeekdays[String(day)] || [])].sort();
+  const blocks = times
+    .map((time) => {
+      const start = parseRange(time).start;
+      const dirId = board.assignments[slotKey(r.officeId, r.pool, day, time)];
+      const dir = board.directors.find((d) => d.id === dirId);
+      const seated = slotBookings(date, start);
+      const people = seated
+        .map((b) => {
+          const c = candidates.find((x) => x.id === b.candidate_id);
+          return `<li><strong>${esc(c?.name || "面試者")}</strong> ${esc(c?.phone || "未填電話")}<small>${esc(c?.job || "")}${c?.line_name ? " · LINE " + esc(c.line_name) : ""}${b.booked_via === "line" ? " · LINE自動預約" : ""} · ${esc(b.start_time)}–${esc(b.end_time || "")}</small> <button type="button" class="danger" data-act="cancel-booking" data-id="${esc(b.id)}">取消</button></li>`;
+        })
+        .join("");
+      const who = [dir?.unit, dir?.name].filter(Boolean).join(" ") || "尚未指定處長";
+      const place = slotPlace(day, time);
+      return `<section class="day-dir"><h3>${esc(who)}<small>${esc(rangeLabel(time))}${place?.label ? " · " + esc(place.label) : ""} · ${seated.length}/${r.capacity}</small></h3>${people ? `<ul class="day-people">${people}</ul>` : "<p>這場還沒有人。</p>"}</section>`;
+    })
+    .join("");
+  modal(
+    `<h2>${date}（星期${DAY[day]}）各處長預約</h2>${isDateClosed(date) ? `<p class="hint-card">這天已標成停面。</p>` : ""}${blocks || "<p>這天沒有排時段。</p>"}`,
+  );
+}
+
 function openSlot(day, time, preselect) {
   const r = board.rules[board.officeIndex];
   const range = parseRange(time);
@@ -916,7 +942,7 @@ document.addEventListener("click", (e) => {
       assignDirectorToCell(Number(day), parseRange(time).start, selectedDir);
       return;
     }
-    return openSlot(Number(day), time);
+    return openDayDetail(Number(day));
   }
   if (a === "add-candidate") return candidateForm();
   if (a === "edit-candidate") return candidateForm(candidates.find((c) => c.id === v));
