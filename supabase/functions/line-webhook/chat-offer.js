@@ -438,6 +438,25 @@ export function composeReminder(date, start, office = TAICHUNG_OFFICE, template 
   return raw.replace(/\{\{(date|time|address|arrival|weather)\}\}/g, (_, key) => vars[key] ?? "");
 }
 
+/** Staff-arranged interview. Same fields the bot already sends after a LINE booking. */
+export function composeInterviewNotice({ date, start, end, office = TAICHUNG_OFFICE, directorLabel = "" } = {}) {
+  const when =
+    date && start
+      ? `${shortDate(date)}（禮拜${DAY_ZH[weekday(date)]}）${zhClock(start)}${end ? "到" + zhClock(end) : ""}`
+      : "";
+  return [
+    "您好，已為您安排面試。",
+    when ? `時間：${when}` : "",
+    office?.address ? `地點：${office.address}` : "",
+    directorLabel ? `面試主管：${directorLabel}` : "",
+    office?.arrival || "",
+    office?.weather || "",
+    "若要改時間，請回「聯絡同仁」。",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 export function looksLikeOfferRequest(text) {
   const t = String(text || "").replace(/\s+/g, "");
   if (!t) return true;

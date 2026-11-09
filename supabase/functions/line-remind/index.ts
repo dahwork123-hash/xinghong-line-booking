@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   composeReminder,
   composeDirectorNotice,
+  composeInterviewNotice,
   officeForSlot,
   reminderTemplateFor,
 } from "./chat-offer.js";
@@ -101,5 +102,31 @@ Deno.serve(async (req) => {
       directors += 1;
     } else skipped += 1;
   }
-  return Response.json({ ok: true, sent, directors, skipped });
+
+  let candidateNotices = 0;
+  const { data: noticeRows, error: noticeError } = await sb.rpc("xinghong_claim_candidate_notices");
+  if (noticeError) {
+    console.error("xinghong_claim_candidate_notices", noticeError.message);
+  } else {
+    for (const row of noticeRows || []) {
+      const city = row.interview_city || row.apply_city || "台中";
+      const office = officeForSlot(city, schedule, row.interview_date, row.start_time, row.director_id);
+      const text = composeInterviewNotice({
+        date: row.interview_date,
+        start: row.start_time,
+        end: row.end_time,
+        office,
+        directorLabel: row.director_label || "",
+      });
+      const ok = await push(token, row.line_user_id, text);
+      if (ok) {
+        await sb.rpc("xinghong_mark_candidate_notice", { p_booking_id: row.id });
+        candidateNotices += 1;
+      } else {
+        await sb.rpc("xinghong_release_candidate_notice", { p_booking_id: row.id });
+        skipped += 1;
+      }
+    }
+  }
+  return Response.json({ ok: true, sent, directors, candidateNotices, skipped });
 });

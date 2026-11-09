@@ -4,6 +4,7 @@ import {
   composeOffer,
   composeConfirm,
   composeReminder,
+  composeInterviewNotice,
   composeDirectorNotice,
   composeHumanNotice,
   composeAskJob,
@@ -25,6 +26,22 @@ test("offer text matches the current staff weekly times", () => {
   assert.match(text, /請問您哪個時段可以來面試呢\?/);
   assert.doesNotMatch(text, /文心路/);
   assert.doesNotMatch(text, /上午10點/);
+});
+
+test("staff interview notice includes time, place, and director", () => {
+  const text = composeInterviewNotice({
+    date: "2026-11-11",
+    start: "14:00",
+    end: "16:00",
+    office: { address: "桃園市中壢區環北路400號13樓之六", arrival: "13樓進辦公室", weather: "颱風假暫停" },
+    directorLabel: "桃一處 簡為倢",
+  });
+  assert.match(text, /已為您安排面試/);
+  assert.match(text, /11\/11（禮拜三）下午2點到下午4點/);
+  assert.match(text, /桃園市中壢區環北路400號13樓之六/);
+  assert.match(text, /桃一處 簡為倢/);
+  assert.match(text, /13樓進辦公室/);
+  assert.match(text, /聯絡同仁/);
 });
 
 test("confirm reply includes address and arrival notes", () => {

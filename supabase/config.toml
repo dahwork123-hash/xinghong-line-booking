@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.line-remind]
 verify_jwt = false
+
+[functions.line-notify]
+verify_jwt = false
