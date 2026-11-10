@@ -84,6 +84,32 @@ test("a half-past or minute reply never books the whole-hour slot", () => {
   });
   assert.ok(!reply.actions.some((a) => a.type === "book"));
   assert.match(reply.text, /沒有對到可預約的時段/);
+  assert.doesNotMatch(reply.text, /跟您約/);
+});
+
+test("thanks or other chat does not resend the weekly offer script", () => {
+  const booking = { interview_date: "2026-11-12", start_time: "14:00", end_time: "16:00" };
+  const base = {
+    today: "2026-11-10",
+    nowHm: "17:19",
+    applyCity: "台中",
+    interviewCity: "台中",
+    profile: { profileOk: true },
+  };
+  const thanks = buildLineReply({ ...base, text: "感謝", booking });
+  assert.match(thanks.text, /不客氣/);
+  assert.match(thanks.text, /您目前已預約 11\/12（禮拜四）下午2點/);
+  assert.doesNotMatch(thanks.text, /跟您約/);
+  assert.doesNotMatch(thanks.text, /沒有對到可預約的時段/);
+
+  const other = buildLineReply({ ...base, text: "我知道了晚點再回", booking });
+  assert.match(other.text, /您目前已預約/);
+  assert.doesNotMatch(other.text, /跟您約/);
+
+  const waiting = buildLineReply({ ...base, text: "感謝" });
+  assert.match(waiting.text, /禮拜一下午2點/);
+  assert.doesNotMatch(waiting.text, /跟您約/);
+  assert.doesNotMatch(waiting.text, /請問您哪個時段可以來面試呢/);
 });
 
 test("accepts weekdays and hours written in Chinese, Arabic or full-width digits", () => {

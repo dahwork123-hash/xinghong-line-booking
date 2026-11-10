@@ -232,7 +232,7 @@ export function looksLikePersonName(text) {
   if (t.length < 2 || t.length > 20) return false;
   if (CITIES.includes(t) || parseJob(t)) return false;
   if (/預約|面試|取消|聯絡|常見|綁定|工作內容|薪資|工時|禮拜|星期|[週周][一二三四五六日1-7]|上午|下午|晚上|可以|下個?[週周]/.test(t)) return false;
-  if (YES_REPLY.test(t)) return false;
+  if (YES_REPLY.test(t) || looksLikeCourtesy(t)) return false;
   if (normalizePhone(t)) return false;
   if (/[A-Za-z0-9]{8,}/.test(t)) return false;
   return true;
@@ -461,6 +461,18 @@ export function looksLikeOfferRequest(text) {
   const t = String(text || "").replace(/\s+/g, "");
   if (!t) return true;
   return /您好|哈囉|你好|預約|面試|時段|請問|想約|可以面試/.test(t);
+}
+
+const COURTESY_REPLY =
+  /^(感謝|謝謝|謝謝你|謝謝您|感謝你|感謝您|感恩|謝啦|thanks|thankyou|thx|3q|收到|了解|瞭解|知道了|沒問題|嗯+|恩+|哦+|喔+|好的?|好喔|好哦|掰掰|拜拜|再見|辛苦了|麻煩了|ok|okay)$/i;
+
+export function looksLikeCourtesy(text) {
+  return COURTESY_REPLY.test(cleanLineText(text).replace(/[!！。.～~]+$/, ""));
+}
+
+export function looksLikeTimeAttempt(text) {
+  const t = cleanLineText(text);
+  return /禮拜|星期|[週周]|今天|明天|後天|上午|下午|晚上|點|時段|\d{1,2}:\d{2}/.test(t);
 }
 
 function parseZhInt(s) {
@@ -949,7 +961,29 @@ function replyFor({
   if (booking && looksLikeOfferRequest(text)) return { text: composeMine(booking, bookingOffice), actions: [] };
   if (looksLikeOfferRequest(text)) return askCity();
   if (waitingNantou) return { text: composeAskNantouInterview(), actions: [] };
+  const triedTime = looksLikeTimeAttempt(text);
+  const courtesy = looksLikeCourtesy(text);
+  if (booking && !triedTime) {
+    return {
+      text: (courtesy ? "不客氣。\n" : "") + composeMine(booking, bookingOffice),
+      actions: [],
+    };
+  }
+  if (courtesy) {
+    if (gap) return askGap(gap, "不客氣。\n\n");
+    if (!knownCity) return { text: "不客氣。若要預約面試，請回「預約面試」。", actions: [] };
+    return { text: "不客氣。若要預約，請直接回覆時段，例如：禮拜一下午2點。", actions: [] };
+  }
+  if (!triedTime) {
+    if (!knownCity) return { text: composeAskCity(), actions: [] };
+    if (gap) return askGap(gap);
+    return {
+      text: "請直接回覆想面試的時段，例如：禮拜一下午2點。\n其他問題請回「聯絡同仁」。",
+      actions: [],
+    };
+  }
   if (!knownCity) return { text: unclearTimeHelp() + "\n\n" + composeAskCity(), actions: [] };
   if (gap) return askGap(gap, unclearTimeHelp() + "\n\n");
-  return { text: unclearTimeHelp() + "\n\n" + offerForContext(ctx), actions: [] };
+  if (booking) return { text: unclearTimeHelp() + "\n\n" + composeMine(booking, bookingOffice), actions: [] };
+  return { text: unclearTimeHelp(), actions: [] };
 }
